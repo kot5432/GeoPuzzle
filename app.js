@@ -698,5 +698,9 @@ async function recordAchievement(type) {
     }
 }
 
-// アプリ起動
-init();
+// アプリ起動（DOM読み込み完了後に実行）
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
