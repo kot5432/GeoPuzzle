@@ -30,6 +30,9 @@ const screens = {
 // 初期化
 async function init() {
     try {
+        // まずイベントリスナーを設定（APIキー設定前でもUIは動作するように）
+        setupEventListeners();
+
         // Supabase接続チェック
         if (!window.supabase) {
             console.error('Supabaseクライアントが読み込まれていません');
@@ -71,8 +74,6 @@ async function init() {
                 showScreen('login');
             }
         });
-
-        setupEventListeners();
     } catch (error) {
         console.error('初期化エラー:', error);
         document.getElementById('auth-error').textContent = 'アプリの初期化に失敗しました: ' + error.message;
