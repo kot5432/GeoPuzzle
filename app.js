@@ -4,7 +4,8 @@ const SUPABASE_URL = 'https://txvbafnnyxeamdhnpbsm.supabase.co'; // Project URL
 const SUPABASE_PUBLISHABLE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // anon public key (JWT format: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)
 
 // Supabaseクライアント初期化
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// window.supabaseはCDNから読み込んだライブラリが提供するグローバルオブジェクト
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // アプリケーション状態
 let currentUser = null;
@@ -48,7 +49,7 @@ async function init() {
         }
 
         // セッションチェック
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
         if (error) {
             console.error('セッション取得エラー:', error);
             document.getElementById('auth-error').textContent = 'セッションの取得に失敗しました: ' + error.message;
@@ -64,7 +65,7 @@ async function init() {
         }
 
         // 認証状態変更リスナー
-        supabase.auth.onAuthStateChange((event, session) => {
+        supabaseClient.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_IN') {
                 currentUser = session.user;
                 showScreen('home');
@@ -244,7 +245,7 @@ async function handleLogin() {
     const errorEl = document.getElementById('auth-error');
     
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
             email,
             password
         });
@@ -264,7 +265,7 @@ async function handleSignup() {
     const errorEl = document.getElementById('auth-error');
     
     try {
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await supabaseClient.auth.signUp({
             email,
             password
         });
@@ -280,7 +281,7 @@ async function handleSignup() {
 // Googleログイン
 async function handleGoogleLogin() {
     try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google'
         });
         
@@ -293,7 +294,7 @@ async function handleGoogleLogin() {
 // GitHubログイン
 async function handleGithubLogin() {
     try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'github'
         });
         
@@ -305,14 +306,14 @@ async function handleGithubLogin() {
 
 // ログアウト処理
 async function handleLogout() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     stopLocationTracking();
 }
 
 // スポットデータ読み込み
 async function loadSpotData() {
     try {
-        const { data: spots, error } = await supabase
+        const { data: spots, error } = await supabaseClient
             .from('spots')
             .select('*')
             .eq('is_active', true)
@@ -613,7 +614,7 @@ function stopCamera() {
 // フォトフレーム適用
 async function applyPhotoFrame() {
     try {
-        const { data: frame, error } = await supabase
+        const { data: frame, error } = await supabaseClient
             .from('photo_frames')
             .select('*')
             .eq('spot_id', currentSpot.id)
@@ -677,7 +678,7 @@ async function savePhoto() {
     const imageData = capturedPhoto.src;
     
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('photo_logs')
             .insert({
                 user_id: currentUser.id,
@@ -724,7 +725,7 @@ function sharePhoto() {
 // ミッション読み込み
 async function loadMission() {
     try {
-        const { data: mission, error } = await supabase
+        const { data: mission, error } = await supabaseClient
             .from('missions')
             .select('*')
             .eq('spot_id', currentSpot.id)
@@ -736,7 +737,7 @@ async function loadMission() {
         document.getElementById('mission-text').textContent = mission.description;
         
         // 達成状況チェック
-        const { data: achievement } = await supabase
+        const { data: achievement } = await supabaseClient
             .from('achievements')
             .select('*')
             .eq('user_id', currentUser.id)
@@ -761,7 +762,7 @@ async function loadMission() {
 // ミッション達成
 async function completeMission() {
     try {
-        const { data: mission, error: missionError } = await supabase
+        const { data: mission, error: missionError } = await supabaseClient
             .from('missions')
             .select('*')
             .eq('spot_id', currentSpot.id)
@@ -770,7 +771,7 @@ async function completeMission() {
         
         if (missionError) throw missionError;
         
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('achievements')
             .insert({
                 user_id: currentUser.id,
@@ -795,7 +796,7 @@ async function completeMission() {
 async function recordAchievement(type) {
     try {
         if (type === 'position') {
-            await supabase
+            await supabaseClient
                 .from('achievements')
                 .insert({
                     user_id: currentUser.id,
