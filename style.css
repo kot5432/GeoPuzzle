@@ -1,0 +1,514 @@
+/* ベーススタイル */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+#app {
+    min-height: 100vh;
+}
+
+.screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.screen.hidden {
+    display: none;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    width: 100%;
+    flex: 1;
+}
+
+/* ログイン画面 */
+#login-screen {
+    justify-content: center;
+    align-items: center;
+}
+
+#login-screen .container {
+    background: white;
+    border-radius: 20px;
+    padding: 40px 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+#login-screen h1 {
+    text-align: center;
+    color: #667eea;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+    font-size: 1rem;
+}
+
+.auth-form {
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 10px;
+}
+
+.btn.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn.secondary {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.btn.secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn.success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+}
+
+.btn.success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+}
+
+.btn.oauth {
+    background: white;
+    border: 2px solid #e0e0e0;
+    color: #333;
+}
+
+.btn.oauth:hover {
+    border-color: #667eea;
+    color: #667eea;
+}
+
+.btn.large {
+    padding: 18px;
+    font-size: 1.1rem;
+}
+
+.btn.small {
+    width: auto;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+}
+
+.oauth-buttons {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.error-message {
+    color: #e74c3c;
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+/* 受信機ステータス */
+.receiver-status {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.receiver-status.connected {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.receiver-status.disconnected {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* アプリヘッダー */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    padding: 15px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+    font-size: 1.5rem;
+    color: #667eea;
+}
+
+.spacer {
+    flex: 1;
+}
+
+/* ホーム画面 */
+.receiver-notice {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.receiver-notice p {
+    margin: 5px 0;
+    color: #856404;
+    font-weight: 600;
+}
+
+.notice-detail {
+    font-size: 0.85rem !important;
+    font-weight: normal !important;
+}
+
+.spot-card {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.spot-card h2 {
+    color: #333;
+    font-size: 1.8rem;
+    margin-bottom: 15px;
+}
+
+.spot-card p {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.distance-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.distance-label {
+    font-weight: 600;
+    color: #667eea;
+}
+
+#spot-distance {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
+}
+
+/* 誘導画面 */
+.navigation-info {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.target-spot {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.target-spot h2 {
+    color: #333;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+.target-spot p {
+    color: #666;
+    line-height: 1.6;
+}
+
+.location-status {
+    margin-bottom: 25px;
+}
+
+.distance-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.position-indicator {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.position-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    margin: 0 auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.position-circle.success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    animation: pulse 0.5s ease-in-out;
+}
+
+.position-circle.error {
+    background: #e74c3c;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+#position-status {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.result-message {
+    text-align: center;
+    margin: 15px 0;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.result-message.success {
+    color: #11998e;
+}
+
+.result-message.error {
+    color: #e74c3c;
+}
+
+/* 写真撮影画面 */
+.photo-container {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.photo-frame {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background: #f0f0f0;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    border: 4px solid #667eea;
+}
+
+#camera-preview,
+#captured-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#photo-canvas {
+    display: none;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.photo-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ミッション画面 */
+.mission-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.mission-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+.mission-card h2 {
+    color: #333;
+    font-size: 1.8rem;
+    margin-bottom: 15px;
+}
+
+.mission-card p {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 25px;
+    font-size: 1.1rem;
+}
+
+.mission-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.status-label {
+    font-weight: 600;
+    color: #667eea;
+}
+
+#mission-status {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
+}
+
+#mission-status.completed {
+    color: #11998e;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 480px) {
+    .container {
+        padding: 15px;
+    }
+    
+    #login-screen .container {
+        padding: 30px 20px;
+    }
+    
+    #login-screen h1 {
+        font-size: 2rem;
+    }
+    
+    .spot-card,
+    .navigation-info,
+    .photo-container,
+    .mission-card {
+        padding: 20px;
+    }
+    
+    .spot-card h2,
+    .mission-card h2 {
+        font-size: 1.5rem;
+    }
+    
+    .photo-frame {
+        height: 250px;
+    }
+    
+    .app-header h1 {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .container {
+        padding: 10px;
+    }
+    
+    #login-screen .container {
+        padding: 25px 15px;
+    }
+    
+    .btn {
+        padding: 12px;
+    }
+    
+    .btn.large {
+        padding: 15px;
+    }
+}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoPuzzle - 観光スポットガイド</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- ログイン画面 -->
+        <div id="login-screen" class="screen">
+            <div class="container">
+                <h1>GeoPuzzle</h1>
+                <p class="subtitle">観光スポットをピタッと見つけよう</p>
+                
+                <div class="auth-form">
+                    <div class="form-group">
+                        <label for="email">メールアドレス</label>
+                        <input type="email" id="email" placeholder="example@mail.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">パスワード</label>
+                        <input type="password" id="password" placeholder="パスワード">
+                    </div>
+                    <button id="login-btn" class="btn primary">ログイン</button>
+                    <button id="signup-btn" class="btn secondary">新規登録</button>
+                </div>
+                
+                <div class="oauth-buttons">
+                    <button id="google-login-btn" class="btn oauth">Googleでログイン</button>
+                    <button id="github-login-btn" class="btn oauth">GitHubでログイン</button>
+                </div>
+                
+                <p id="auth-error" class="error-message"></p>
+            </div>
+        </div>
+
+        <!-- ホーム画面 -->
+        <div id="home-screen" class="screen hidden">
+            <div class="container">
+                <header class="app-header">
+                    <h1>GeoPuzzle</h1>
+                    <button id="logout-btn" class="btn small">ログアウト</button>
+                </header>
+                
+                <div class="receiver-notice">
+                    <p>⚠️ このアプリはみちびき受信機が必要です</p>
+                    <p class="notice-detail">対応受信機: LRTK Phone 4C, QZR-SP, RJCLAS-L6</p>
+                </div>
+                
+                <div class="spot-card">
+                    <h2 id="spot-name">読み込み中...</h2>
+                    <p id="spot-description">スポット情報を取得中...</p>
+                    <div class="distance-info">
+                        <span class="distance-label">距離:</span>
+                        <span id="spot-distance">--</span>
+                    </div>
+                    <button id="navigate-btn" class="btn primary large">スポットへ向かう</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 誘導画面 -->
+        <div id="navigation-screen" class="screen hidden">
+            <div class="container">
+                <header class="app-header">
+                    <button id="back-home-btn" class="btn small">← 戻る</button>
+                    <h1>ナビゲーション</h1>
+                    <div class="spacer"></div>
+                </header>
+                
+                <div class="navigation-info">
+                    <div class="target-spot">
+                        <h2 id="nav-spot-name">スポット名</h2>
+                        <p id="nav-spot-description">説明</p>
+                    </div>
+                    
+                    <div id="receiver-status" class="receiver-status disconnected">🔴 スマホGPS使用中</div>
+                    
+                    <div class="location-status">
+                        <div class="distance-display">
+                            <span class="distance-label">残り距離:</span>
+                            <span id="nav-distance">--</span>
+                        </div>
+                        
+                        <div class="position-indicator">
+                            <div id="position-circle" class="position-circle"></div>
+                            <p id="position-status">位置情報を取得中...</p>
+                        </div>
+                    </div>
+                    
+                    <button id="check-position-btn" class="btn primary large">ピタッと判定</button>
+                    <p id="position-result" class="result-message"></p>
+                    
+                    <button id="photo-btn" class="btn success large hidden">写真を撮る</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 写真撮影画面 -->
+        <div id="photo-screen" class="screen hidden">
+            <div class="container">
+                <header class="app-header">
+                    <button id="back-nav-btn" class="btn small">← 戻る</button>
+                    <h1>写真撮影</h1>
+                    <div class="spacer"></div>
+                </header>
+                
+                <div class="photo-container">
+                    <div id="photo-frame" class="photo-frame">
+                        <video id="camera-preview" autoplay playsinline></video>
+                        <canvas id="photo-canvas" class="hidden"></canvas>
+                        <img id="captured-photo" class="hidden">
+                    </div>
+                    
+                    <div class="photo-controls">
+                        <button id="capture-btn" class="btn primary large">撮影</button>
+                        <button id="retake-btn" class="btn secondary hidden">撮り直し</button>
+                        <button id="save-photo-btn" class="btn success hidden">保存</button>
+                        <button id="share-photo-btn" class="btn secondary hidden">SNSで共有</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ミッション画面 -->
+        <div id="mission-screen" class="screen hidden">
+            <div class="container">
+                <header class="app-header">
+                    <h1>ミッション</h1>
+                    <div class="spacer"></div>
+                </header>
+                
+                <div class="mission-card">
+                    <div class="mission-icon">🎯</div>
+                    <h2>次のミッション</h2>
+                    <p id="mission-text">ミッションを読み込み中...</p>
+                    
+                    <div class="mission-status">
+                        <span class="status-label">達成状況:</span>
+                        <span id="mission-status">未達成</span>
+                    </div>
+                    
+                    <button id="complete-mission-btn" class="btn primary large">ミッション達成</button>
+                    <button id="back-home-mission-btn" class="btn secondary">ホームに戻る</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+</body>
+</html>
