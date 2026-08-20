@@ -1,7 +1,6 @@
 // Supabase設定
-// ⚠️ 以下の値をSupabaseダッシュボードから取得した正しい値に置き換えてください
-const SUPABASE_URL = 'https://txvbafnnyxeamdhnpbsm.supabase.co'; // Project URL
-const SUPABASE_PUBLISHABLE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // anon public key (JWT format: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)
+const SUPABASE_URL = 'https://txvbafnnyxeamdhnpbsm.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_k7gR5VqyE-OzipUaVFnWXg_nnShZRjX';
 
 // Supabaseクライアント初期化
 // window.supabaseはCDNから読み込んだライブラリが提供するグローバルオブジェクト
