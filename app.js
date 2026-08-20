@@ -88,42 +88,153 @@ function showScreen(screenName) {
 
 // イベントリスナー設定
 function setupEventListeners() {
+    console.log('イベントリスナーを設定中...');
+    
     // ログイン関連
-    document.getElementById('login-btn').addEventListener('click', handleLogin);
-    document.getElementById('signup-btn').addEventListener('click', handleSignup);
-    document.getElementById('google-login-btn').addEventListener('click', handleGoogleLogin);
-    document.getElementById('github-login-btn').addEventListener('click', handleGithubLogin);
-    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    const loginBtn = document.getElementById('login-btn');
+    const signupBtn = document.getElementById('signup-btn');
+    const googleLoginBtn = document.getElementById('google-login-btn');
+    const githubLoginBtn = document.getElementById('github-login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    if (loginBtn) {
+        loginBtn.addEventListener('click', (e) => {
+            console.log('ログインボタンがクリックされました');
+            handleLogin(e);
+        });
+    } else {
+        console.error('login-btnが見つかりません');
+    }
+    
+    if (signupBtn) {
+        signupBtn.addEventListener('click', (e) => {
+            console.log('新規登録ボタンがクリックされました');
+            handleSignup(e);
+        });
+    } else {
+        console.error('signup-btnが見つかりません');
+    }
+    
+    if (googleLoginBtn) {
+        googleLoginBtn.addEventListener('click', (e) => {
+            console.log('Googleログインボタンがクリックされました');
+            handleGoogleLogin(e);
+        });
+    } else {
+        console.error('google-login-btnが見つかりません');
+    }
+    
+    if (githubLoginBtn) {
+        githubLoginBtn.addEventListener('click', (e) => {
+            console.log('GitHubログインボタンがクリックされました');
+            handleGithubLogin(e);
+        });
+    } else {
+        console.error('github-login-btnが見つかりません');
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            console.log('ログアウトボタンがクリックされました');
+            handleLogout(e);
+        });
+    } else {
+        console.error('logout-btnが見つかりません');
+    }
     
     // ホーム画面
-    document.getElementById('navigate-btn').addEventListener('click', startNavigation);
+    const navigateBtn = document.getElementById('navigate-btn');
+    if (navigateBtn) {
+        navigateBtn.addEventListener('click', startNavigation);
+    } else {
+        console.error('navigate-btnが見つかりません');
+    }
     
     // 誘導画面
-    document.getElementById('back-home-btn').addEventListener('click', () => {
-        stopLocationTracking();
-        showScreen('home');
-    });
-    document.getElementById('check-position-btn').addEventListener('click', checkPosition);
-    document.getElementById('photo-btn').addEventListener('click', () => {
-        showScreen('photo');
-        startCamera();
-    });
+    const backHomeBtn = document.getElementById('back-home-btn');
+    if (backHomeBtn) {
+        backHomeBtn.addEventListener('click', () => {
+            stopLocationTracking();
+            showScreen('home');
+        });
+    } else {
+        console.error('back-home-btnが見つかりません');
+    }
+    
+    const checkPositionBtn = document.getElementById('check-position-btn');
+    if (checkPositionBtn) {
+        checkPositionBtn.addEventListener('click', checkPosition);
+    } else {
+        console.error('check-position-btnが見つかりません');
+    }
+    
+    const photoBtn = document.getElementById('photo-btn');
+    if (photoBtn) {
+        photoBtn.addEventListener('click', () => {
+            showScreen('photo');
+            startCamera();
+        });
+    } else {
+        console.error('photo-btnが見つかりません');
+    }
     
     // 写真撮影画面
-    document.getElementById('back-nav-btn').addEventListener('click', () => {
-        stopCamera();
-        showScreen('navigation');
-    });
-    document.getElementById('capture-btn').addEventListener('click', capturePhoto);
-    document.getElementById('retake-btn').addEventListener('click', retakePhoto);
-    document.getElementById('save-photo-btn').addEventListener('click', savePhoto);
-    document.getElementById('share-photo-btn').addEventListener('click', sharePhoto);
+    const backNavBtn = document.getElementById('back-nav-btn');
+    if (backNavBtn) {
+        backNavBtn.addEventListener('click', () => {
+            stopCamera();
+            showScreen('navigation');
+        });
+    } else {
+        console.error('back-nav-btnが見つかりません');
+    }
+    
+    const captureBtn = document.getElementById('capture-btn');
+    if (captureBtn) {
+        captureBtn.addEventListener('click', capturePhoto);
+    } else {
+        console.error('capture-btnが見つかりません');
+    }
+    
+    const retakeBtn = document.getElementById('retake-btn');
+    if (retakeBtn) {
+        retakeBtn.addEventListener('click', retakePhoto);
+    } else {
+        console.error('retake-btnが見つかりません');
+    }
+    
+    const savePhotoBtn = document.getElementById('save-photo-btn');
+    if (savePhotoBtn) {
+        savePhotoBtn.addEventListener('click', savePhoto);
+    } else {
+        console.error('save-photo-btnが見つかりません');
+    }
+    
+    const sharePhotoBtn = document.getElementById('share-photo-btn');
+    if (sharePhotoBtn) {
+        sharePhotoBtn.addEventListener('click', sharePhoto);
+    } else {
+        console.error('share-photo-btnが見つかりません');
+    }
     
     // ミッション画面
-    document.getElementById('complete-mission-btn').addEventListener('click', completeMission);
-    document.getElementById('back-home-mission-btn').addEventListener('click', () => {
-        showScreen('home');
-    });
+    const completeMissionBtn = document.getElementById('complete-mission-btn');
+    if (completeMissionBtn) {
+        completeMissionBtn.addEventListener('click', completeMission);
+    } else {
+        console.error('complete-mission-btnが見つかりません');
+    }
+    
+    const backHomeMissionBtn = document.getElementById('back-home-mission-btn');
+    if (backHomeMissionBtn) {
+        backHomeMissionBtn.addEventListener('click', () => {
+            showScreen('home');
+        });
+    } else {
+        console.error('back-home-mission-btnが見つかりません');
+    }
+    
+    console.log('イベントリスナーの設定が完了しました');
 }
 
 // ログイン処理
