@@ -72,13 +72,15 @@
 1. 左メニューから「Project Settings」→「API」をクリック
 2. 以下の情報をコピー：
    - **Project URL**: `https://xxxxx.supabase.co` の形式
-   - **anon public**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` の形式
+   - **anon public**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` の形式（JWT形式、長い文字列）
 3. `app.js`ファイルを開き、先頭の定数を書き換え：
 
 ```javascript
-const SUPABASE_URL = 'コピーしたProject URL';
-const SUPABASE_PUBLISHABLE_KEY = 'コピーしたanon public key';
+const SUPABASE_URL = 'https://txvbafnnyxeamdhnpbsm.supabase.co'; // コピーしたProject URL
+const SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // コピーしたanon public key
 ```
+
+**重要**: `SUPABASE_PUBLISHABLE_KEY`はJWT形式（`eyJhbGci...`で始まる長い文字列）である必要があります。`sb_publishable_...`のような短い文字列ではありません。
 
 4. ファイルを保存
 

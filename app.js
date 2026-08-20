@@ -1,6 +1,7 @@
 // Supabase設定
-const SUPABASE_URL = 'https://txvbafnnyxeamdhnpbsm.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_k7gR5VqyE-OzipUaVFnWXg_nnShZRjX';
+// ⚠️ 以下の値をSupabaseダッシュボードから取得した正しい値に置き換えてください
+const SUPABASE_URL = 'https://txvbafnnyxeamdhnpbsm.supabase.co'; // Project URL
+const SUPABASE_PUBLISHABLE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // anon public key (JWT format: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)
 
 // Supabaseクライアント初期化
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -28,29 +29,54 @@ const screens = {
 
 // 初期化
 async function init() {
-    // セッションチェック
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        currentUser = session.user;
-        showScreen('home');
-        loadSpotData();
-    } else {
-        showScreen('login');
-    }
-    
-    // 認証状態変更リスナー
-    supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN') {
+    try {
+        // Supabase接続チェック
+        if (!window.supabase) {
+            console.error('Supabaseクライアントが読み込まれていません');
+            document.getElementById('auth-error').textContent = 'Supabaseライブラリの読み込みに失敗しました。ページを再読み込みしてください。';
+            return;
+        }
+
+        // APIキーチェック
+        if (SUPABASE_PUBLISHABLE_KEY === 'YOUR_SUPABASE_ANON_KEY_HERE') {
+            console.error('Supabase APIキーが設定されていません');
+            document.getElementById('auth-error').textContent = '⚠️ Supabase APIキーを設定してください。app.jsのSUPABASE_PUBLISHABLE_KEYを正しい値に置き換えてください。';
+            return;
+        }
+
+        // セッションチェック
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+            console.error('セッション取得エラー:', error);
+            document.getElementById('auth-error').textContent = 'セッションの取得に失敗しました: ' + error.message;
+            return;
+        }
+
+        if (session) {
             currentUser = session.user;
             showScreen('home');
             loadSpotData();
-        } else if (event === 'SIGNED_OUT') {
-            currentUser = null;
+        } else {
             showScreen('login');
         }
-    });
-    
-    setupEventListeners();
+
+        // 認証状態変更リスナー
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN') {
+                currentUser = session.user;
+                showScreen('home');
+                loadSpotData();
+            } else if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                showScreen('login');
+            }
+        });
+
+        setupEventListeners();
+    } catch (error) {
+        console.error('初期化エラー:', error);
+        document.getElementById('auth-error').textContent = 'アプリの初期化に失敗しました: ' + error.message;
+    }
 }
 
 // 画面切り替え
