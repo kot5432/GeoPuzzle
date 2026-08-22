@@ -1,8 +1,4 @@
 {
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "BASE_PATH=/ PORT=3000 pnpm --filter @workspace/geo-puzzle run build",
-  "outputDirectory": "artifacts/geo-puzzle/dist/public",
-  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
