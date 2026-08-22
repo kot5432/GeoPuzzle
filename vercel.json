@@ -1,8 +1,4 @@
 {
-  "installCommand": "npm install",
-  "buildCommand": "cd artifacts/geo-puzzle && npm run build",
-  "outputDirectory": "artifacts/geo-puzzle/dist",
-  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
