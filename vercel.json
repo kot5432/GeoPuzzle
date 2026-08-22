@@ -1,7 +1,7 @@
 {
-  "installCommand": "pnpm install",
-  "buildCommand": "BASE_PATH=/ PORT=3000 pnpm --filter @workspace/geo-puzzle run build",
-  "outputDirectory": "artifacts/geo-puzzle/dist/public",
+  "installCommand": "npm install",
+  "buildCommand": "cd artifacts/geo-puzzle && npm run build",
+  "outputDirectory": "artifacts/geo-puzzle/dist",
   "framework": "vite",
   "rewrites": [
     {
