@@ -558,6 +558,82 @@ body {
     color: #11998e;
 }
 
+/* 発見画面 */
+.discovery-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.discovery-icon {
+    font-size: 5rem;
+    margin-bottom: 20px;
+    animation: bounce 0.5s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+
+.discovery-card h2 {
+    color: #333;
+    font-size: 1.8rem;
+    margin-bottom: 30px;
+}
+
+.spot-info {
+    text-align: left;
+    margin-bottom: 30px;
+}
+
+.spot-info h3 {
+    color: #667eea;
+    font-size: 1.3rem;
+    margin-bottom: 15px;
+}
+
+.spot-info p {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.spot-details {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.detail-value {
+    font-weight: 700;
+    color: #333;
+}
+
+.discovery-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 /* レスポンシブ対応 */
 @media (max-width: 480px) {
     .container {

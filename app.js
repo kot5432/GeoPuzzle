@@ -24,7 +24,8 @@ const screens = {
     home: document.getElementById('home-screen'),
     navigation: document.getElementById('navigation-screen'),
     photo: document.getElementById('photo-screen'),
-    mission: document.getElementById('mission-screen')
+    mission: document.getElementById('mission-screen'),
+    discovery: document.getElementById('discovery-screen')
 };
 
 // 初期化
@@ -167,6 +168,32 @@ function setupEventListeners() {
         nextHintBtn.addEventListener('click', showNextHint);
     } else {
         console.error('next-hint-btnが見つかりません');
+    }
+    
+    // 発見画面ボタン
+    const backExploreBtn = document.getElementById('back-explore-btn');
+    if (backExploreBtn) {
+        backExploreBtn.addEventListener('click', () => {
+            showScreen('navigation');
+        });
+    } else {
+        console.error('back-explore-btnが見つかりません');
+    }
+    
+    const addCollectionBtn = document.getElementById('add-collection-btn');
+    if (addCollectionBtn) {
+        addCollectionBtn.addEventListener('click', addToCollection);
+    } else {
+        console.error('add-collection-btnが見つかりません');
+    }
+    
+    const backHomeDiscoveryBtn = document.getElementById('back-home-discovery-btn');
+    if (backHomeDiscoveryBtn) {
+        backHomeDiscoveryBtn.addEventListener('click', () => {
+            showScreen('home');
+        });
+    } else {
+        console.error('back-home-discovery-btnが見つかりません');
     }
     
     // 誘導画面
@@ -570,6 +597,11 @@ function checkPosition() {
         resultEl.textContent = '🎉 ピタッと正解！';
         resultEl.classList.remove('error');
         resultEl.classList.add('success');
+        
+        // 発見画面へ遷移
+        setTimeout(() => {
+            showDiscoveryScreen();
+        }, 1000);
         positionCircle.classList.add('success');
         positionCircle.classList.remove('error');
         
@@ -796,6 +828,31 @@ function resetHints() {
         nextHintBtn.textContent = '次のヒント';
         nextHintBtn.disabled = false;
     }
+}
+
+// コレクションに追加
+function addToCollection() {
+    console.log('コレクションに追加します');
+    
+    // ローカルストレージに保存
+    let collection = JSON.parse(localStorage.getItem('geopuzzle_collection') || '[]');
+    
+    if (!collection.includes(currentSpot.id)) {
+        collection.push(currentSpot.id);
+        localStorage.setItem('geopuzzle_collection', JSON.stringify(collection));
+        alert('コレクションに追加しました！');
+    } else {
+        alert('すでにコレクションに追加されています');
+    }
+    
+    // ホーム画面へ
+    showScreen('home');
+}
+
+// 到着判定時に発見画面を表示
+function showDiscoveryScreen() {
+    stopLocationTracking();
+    showScreen('discovery');
 }
 
 // ミッション読み込み

@@ -142,26 +142,43 @@
             </div>
         </div>
 
-        <!-- ミッション画面 -->
-        <div id="mission-screen" class="screen hidden">
+        <!-- 発見画面 -->
+        <div id="discovery-screen" class="screen hidden">
             <div class="container">
                 <header class="app-header">
-                    <h1>ミッション</h1>
+                    <button id="back-explore-btn" class="btn small">← 戻る</button>
+                    <h1>発見！</h1>
                     <div class="spacer"></div>
                 </header>
                 
-                <div class="mission-card">
-                    <div class="mission-icon">🎯</div>
-                    <h2>次のミッション</h2>
-                    <p id="mission-text">ミッションを読み込み中...</p>
+                <div class="discovery-card">
+                    <div class="discovery-icon">�</div>
+                    <h2>海王丸を見つけました！</h2>
                     
-                    <div class="mission-status">
-                        <span class="status-label">達成状況:</span>
-                        <span id="mission-status">未達成</span>
+                    <div class="spot-info">
+                        <h3>海王丸について</h3>
+                        <p>海王丸はかつて海上大学として活躍した日本の練習船です。金沢港に展示されており、船内を見学することができます。</p>
+                        
+                        <div class="spot-details">
+                            <div class="detail-item">
+                                <span class="detail-label">建造年:</span>
+                                <span class="detail-value">1989年</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">全長:</span>
+                                <span class="detail-value">142.5m</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">総トン数:</span>
+                                <span class="detail-value">4,517トン</span>
+                            </div>
+                        </div>
                     </div>
                     
-                    <button id="complete-mission-btn" class="btn primary large">ミッション達成</button>
-                    <button id="back-home-mission-btn" class="btn secondary">ホームに戻る</button>
+                    <div class="discovery-actions">
+                        <button id="add-collection-btn" class="btn primary large">コレクションに追加</button>
+                        <button id="back-home-discovery-btn" class="btn secondary">ホームに戻る</button>
+                    </div>
                 </div>
             </div>
         </div>
