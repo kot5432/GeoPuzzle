@@ -46,19 +46,20 @@
                     <button id="logout-btn" class="btn small">ログアウト</button>
                 </header>
                 
+                <div class="area-selection">
+                    <h2>観光エリアを選択</h2>
+                    
+                    <div class="area-card" id="kaiomaru-area">
+                        <div class="area-icon">⚓</div>
+                        <h3>海王丸</h3>
+                        <p>金沢港に展示されている練習船</p>
+                        <button class="btn primary" id="start-kaiomaru-btn">探索を開始</button>
+                    </div>
+                </div>
+                
                 <div class="receiver-notice">
                     <p>⚠️ このアプリはみちびき受信機が必要です</p>
                     <p class="notice-detail">対応受信機: LRTK Phone 4C, QZR-SP, RJCLAS-L6</p>
-                </div>
-                
-                <div class="spot-card">
-                    <h2 id="spot-name">読み込み中...</h2>
-                    <p id="spot-description">スポット情報を取得中...</p>
-                    <div class="distance-info">
-                        <span class="distance-label">距離:</span>
-                        <span id="spot-distance">--</span>
-                    </div>
-                    <button id="navigate-btn" class="btn primary large">スポットへ向かう</button>
                 </div>
             </div>
         </div>

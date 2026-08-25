@@ -142,6 +142,17 @@ function setupEventListeners() {
         console.error('logout-btnが見つかりません');
     }
     
+    // 海王丸探索開始ボタン
+    const startKaiomaruBtn = document.getElementById('start-kaiomaru-btn');
+    if (startKaiomaruBtn) {
+        startKaiomaruBtn.addEventListener('click', (e) => {
+            console.log('海王丸探索開始ボタンがクリックされました');
+            startKaiomaruExploration(e);
+        });
+    } else {
+        console.error('start-kaiomaru-btnが見つかりません');
+    }
+    
     // ホーム画面
     const navigateBtn = document.getElementById('navigate-btn');
     if (navigateBtn) {
@@ -719,6 +730,25 @@ function sharePhoto() {
         link.href = capturedPhoto.src;
         link.click();
     }
+}
+
+// 海王丸探索開始
+function startKaiomaruExploration(e) {
+    e.preventDefault();
+    console.log('海王丸探索を開始します');
+    
+    // 海王丸のスポット情報を設定
+    currentSpot = {
+        id: 'kaiomaru',
+        name: '海王丸',
+        description: '金沢港に展示されている練習船',
+        latitude: 36.5678,
+        longitude: 136.6543
+    };
+    
+    // 探索画面へ遷移
+    showScreen('navigation');
+    loadNavigationInfo();
 }
 
 // ミッション読み込み

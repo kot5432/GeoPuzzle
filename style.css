@@ -210,6 +210,43 @@ body {
 }
 
 /* ホーム画面 */
+.area-selection {
+    margin-bottom: 20px;
+}
+
+.area-selection h2 {
+    color: white;
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.area-card {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.area-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+}
+
+.area-card h3 {
+    color: #333;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+.area-card p {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
 .receiver-notice {
     background: #fff3cd;
     border: 1px solid #ffc107;
