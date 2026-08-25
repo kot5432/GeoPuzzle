@@ -69,34 +69,49 @@
             <div class="container">
                 <header class="app-header">
                     <button id="back-home-btn" class="btn small">← 戻る</button>
-                    <h1>ナビゲーション</h1>
+                    <h1>探索中</h1>
                     <div class="spacer"></div>
                 </header>
                 
-                <div class="navigation-info">
+                <div class="exploration-info">
                     <div class="target-spot">
-                        <h2 id="nav-spot-name">スポット名</h2>
-                        <p id="nav-spot-description">説明</p>
+                        <h2 id="nav-spot-name">海王丸</h2>
+                        <p id="nav-spot-description">金沢港に展示されている練習船を見つけよう</p>
+                    </div>
+                    
+                    <div class="hint-section">
+                        <h3>ヒント</h3>
+                        <div class="hint-card" id="hint-1">
+                            <span class="hint-number">1</span>
+                            <p>海に近い場所にあります</p>
+                        </div>
+                        <div class="hint-card hidden" id="hint-2">
+                            <span class="hint-number">2</span>
+                            <p>大きな船が見える場所へ向かってください</p>
+                        </div>
+                        <div class="hint-card hidden" id="hint-3">
+                            <span class="hint-number">3</span>
+                            <p>船の正面に立ってください</p>
+                        </div>
+                        <button id="next-hint-btn" class="btn secondary">次のヒント</button>
                     </div>
                     
                     <div id="receiver-status" class="receiver-status disconnected">🔴 スマホGPS使用中</div>
                     
                     <div class="location-status">
                         <div class="distance-display">
-                            <span class="distance-label">残り距離:</span>
+                            <span class="distance-label">目的地まで:</span>
                             <span id="nav-distance">--</span>
                         </div>
                         
-                        <div class="position-indicator">
-                            <div id="position-circle" class="position-circle"></div>
-                            <p id="position-status">位置情報を取得中...</p>
+                        <div class="direction-display">
+                            <span class="direction-label">方向:</span>
+                            <span id="nav-direction">--</span>
                         </div>
                     </div>
                     
-                    <button id="check-position-btn" class="btn primary large">ピタッと判定</button>
+                    <button id="check-position-btn" class="btn primary large">到着判定</button>
                     <p id="position-result" class="result-message"></p>
-                    
-                    <button id="photo-btn" class="btn success large hidden">写真を撮る</button>
                 </div>
             </div>
         </div>

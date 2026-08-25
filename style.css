@@ -308,11 +308,72 @@ body {
 }
 
 /* 誘導画面 */
-.navigation-info {
+.exploration-info {
     background: white;
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.hint-section {
+    margin: 30px 0;
+}
+
+.hint-section h3 {
+    color: #333;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
+.hint-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-left: 4px solid #667eea;
+}
+
+.hint-number {
+    background: #667eea;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.hint-card p {
+    color: #666;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.direction-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.direction-label {
+    font-weight: 600;
+    color: #667eea;
+}
+
+#nav-direction {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
 }
 
 .target-spot {

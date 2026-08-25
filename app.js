@@ -161,6 +161,14 @@ function setupEventListeners() {
         console.error('navigate-btnが見つかりません');
     }
     
+    // 次のヒントボタン
+    const nextHintBtn = document.getElementById('next-hint-btn');
+    if (nextHintBtn) {
+        nextHintBtn.addEventListener('click', showNextHint);
+    } else {
+        console.error('next-hint-btnが見つかりません');
+    }
+    
     // 誘導画面
     const backHomeBtn = document.getElementById('back-home-btn');
     if (backHomeBtn) {
@@ -746,9 +754,48 @@ function startKaiomaruExploration(e) {
         longitude: 136.6543
     };
     
+    // ヒントをリセット
+    currentHintIndex = 0;
+    resetHints();
+    
     // 探索画面へ遷移
     showScreen('navigation');
     loadNavigationInfo();
+}
+
+// ヒント管理
+let currentHintIndex = 0;
+
+function showNextHint() {
+    currentHintIndex++;
+    
+    if (currentHintIndex >= 3) {
+        // 全ヒント表示済み
+        document.getElementById('next-hint-btn').textContent = 'ヒントは全て表示されました';
+        document.getElementById('next-hint-btn').disabled = true;
+        return;
+    }
+    
+    const nextHint = document.getElementById(`hint-${currentHintIndex + 1}`);
+    if (nextHint) {
+        nextHint.classList.remove('hidden');
+    }
+}
+
+function resetHints() {
+    currentHintIndex = 0;
+    for (let i = 2; i <= 3; i++) {
+        const hint = document.getElementById(`hint-${i}`);
+        if (hint) {
+            hint.classList.add('hidden');
+        }
+    }
+    
+    const nextHintBtn = document.getElementById('next-hint-btn');
+    if (nextHintBtn) {
+        nextHintBtn.textContent = '次のヒント';
+        nextHintBtn.disabled = false;
+    }
 }
 
 // ミッション読み込み
