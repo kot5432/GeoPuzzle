@@ -25,7 +25,8 @@ const screens = {
     navigation: document.getElementById('navigation-screen'),
     photo: document.getElementById('photo-screen'),
     mission: document.getElementById('mission-screen'),
-    discovery: document.getElementById('discovery-screen')
+    discovery: document.getElementById('discovery-screen'),
+    collection: document.getElementById('collection-screen')
 };
 
 // 初期化
@@ -97,6 +98,7 @@ function setupEventListeners() {
     const googleLoginBtn = document.getElementById('google-login-btn');
     const githubLoginBtn = document.getElementById('github-login-btn');
     const logoutBtn = document.getElementById('logout-btn');
+    const collectionBtn = document.getElementById('collection-btn');
     
     if (loginBtn) {
         loginBtn.addEventListener('click', (e) => {
@@ -141,6 +143,15 @@ function setupEventListeners() {
         });
     } else {
         console.error('logout-btnが見つかりません');
+    }
+    
+    if (collectionBtn) {
+        collectionBtn.addEventListener('click', () => {
+            console.log('コレクションボタンがクリックされました');
+            showCollectionScreen();
+        });
+    } else {
+        console.error('collection-btnが見つかりません');
     }
     
     // 海王丸探索開始ボタン
@@ -194,6 +205,16 @@ function setupEventListeners() {
         });
     } else {
         console.error('back-home-discovery-btnが見つかりません');
+    }
+    
+    // コレクション画面ボタン
+    const backHomeCollectionBtn = document.getElementById('back-home-collection-btn');
+    if (backHomeCollectionBtn) {
+        backHomeCollectionBtn.addEventListener('click', () => {
+            showScreen('home');
+        });
+    } else {
+        console.error('back-home-collection-btnが見つかりません');
     }
     
     // 誘導画面
@@ -853,6 +874,54 @@ function addToCollection() {
 function showDiscoveryScreen() {
     stopLocationTracking();
     showScreen('discovery');
+}
+
+// コレクション画面を表示
+function showCollectionScreen() {
+    loadCollection();
+    showScreen('collection');
+}
+
+// コレクションを読み込み
+function loadCollection() {
+    const collection = JSON.parse(localStorage.getItem('geopuzzle_collection') || '[]');
+    const collectionCount = document.getElementById('collection-count');
+    const collectionList = document.getElementById('collection-list');
+    
+    // 発見数を更新
+    collectionCount.textContent = collection.length;
+    
+    // コレクションリストを更新
+    if (collection.length === 0) {
+        collectionList.innerHTML = '<p class="empty-message">まだ発見したスポットがありません</p>';
+    } else {
+        collectionList.innerHTML = '';
+        
+        // 海王丸の情報
+        const spots = {
+            'kaiomaru': {
+                name: '海王丸',
+                description: '金沢港に展示されている練習船',
+                icon: '⚓'
+            }
+        };
+        
+        collection.forEach(spotId => {
+            const spot = spots[spotId];
+            if (spot) {
+                const item = document.createElement('div');
+                item.className = 'collection-item';
+                item.innerHTML = `
+                    <div class="collection-item-icon">${spot.icon}</div>
+                    <div class="collection-item-info">
+                        <h4>${spot.name}</h4>
+                        <p>${spot.description}</p>
+                    </div>
+                `;
+                collectionList.appendChild(item);
+            }
+        });
+    }
 }
 
 // ミッション読み込み

@@ -634,6 +634,82 @@ body {
     gap: 10px;
 }
 
+/* コレクション画面 */
+.collection-stats {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+    min-width: 150px;
+    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+}
+
+.stat-number {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.stat-label {
+    font-size: 1rem;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.collection-list {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.empty-message {
+    text-align: center;
+    color: #666;
+    font-size: 1.1rem;
+    padding: 40px 20px;
+}
+
+.collection-item {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-left: 4px solid #667eea;
+}
+
+.collection-item-icon {
+    font-size: 2rem;
+}
+
+.collection-item-info h4 {
+    color: #333;
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.collection-item-info p {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.collection-item-date {
+    margin-left: auto;
+    color: #999;
+    font-size: 0.8rem;
+}
+
 /* レスポンシブ対応 */
 @media (max-width: 480px) {
     .container {
