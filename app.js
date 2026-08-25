@@ -23,8 +23,6 @@ const screens = {
     login: document.getElementById('login-screen'),
     home: document.getElementById('home-screen'),
     navigation: document.getElementById('navigation-screen'),
-    photo: document.getElementById('photo-screen'),
-    mission: document.getElementById('mission-screen'),
     discovery: document.getElementById('discovery-screen'),
     collection: document.getElementById('collection-screen')
 };
@@ -60,7 +58,6 @@ async function init() {
         if (session) {
             currentUser = session.user;
             showScreen('home');
-            loadSpotData();
         } else {
             showScreen('login');
         }
@@ -70,7 +67,6 @@ async function init() {
             if (event === 'SIGNED_IN') {
                 currentUser = session.user;
                 showScreen('home');
-                loadSpotData();
             } else if (event === 'SIGNED_OUT') {
                 currentUser = null;
                 showScreen('login');
@@ -165,14 +161,6 @@ function setupEventListeners() {
         console.error('start-kaiomaru-btnが見つかりません');
     }
     
-    // ホーム画面
-    const navigateBtn = document.getElementById('navigate-btn');
-    if (navigateBtn) {
-        navigateBtn.addEventListener('click', startNavigation);
-    } else {
-        console.error('navigate-btnが見つかりません');
-    }
-    
     // 次のヒントボタン
     const nextHintBtn = document.getElementById('next-hint-btn');
     if (nextHintBtn) {
@@ -233,72 +221,6 @@ function setupEventListeners() {
         checkPositionBtn.addEventListener('click', checkPosition);
     } else {
         console.error('check-position-btnが見つかりません');
-    }
-    
-    const photoBtn = document.getElementById('photo-btn');
-    if (photoBtn) {
-        photoBtn.addEventListener('click', () => {
-            showScreen('photo');
-            startCamera();
-        });
-    } else {
-        console.error('photo-btnが見つかりません');
-    }
-    
-    // 写真撮影画面
-    const backNavBtn = document.getElementById('back-nav-btn');
-    if (backNavBtn) {
-        backNavBtn.addEventListener('click', () => {
-            stopCamera();
-            showScreen('navigation');
-        });
-    } else {
-        console.error('back-nav-btnが見つかりません');
-    }
-    
-    const captureBtn = document.getElementById('capture-btn');
-    if (captureBtn) {
-        captureBtn.addEventListener('click', capturePhoto);
-    } else {
-        console.error('capture-btnが見つかりません');
-    }
-    
-    const retakeBtn = document.getElementById('retake-btn');
-    if (retakeBtn) {
-        retakeBtn.addEventListener('click', retakePhoto);
-    } else {
-        console.error('retake-btnが見つかりません');
-    }
-    
-    const savePhotoBtn = document.getElementById('save-photo-btn');
-    if (savePhotoBtn) {
-        savePhotoBtn.addEventListener('click', savePhoto);
-    } else {
-        console.error('save-photo-btnが見つかりません');
-    }
-    
-    const sharePhotoBtn = document.getElementById('share-photo-btn');
-    if (sharePhotoBtn) {
-        sharePhotoBtn.addEventListener('click', sharePhoto);
-    } else {
-        console.error('share-photo-btnが見つかりません');
-    }
-    
-    // ミッション画面
-    const completeMissionBtn = document.getElementById('complete-mission-btn');
-    if (completeMissionBtn) {
-        completeMissionBtn.addEventListener('click', completeMission);
-    } else {
-        console.error('complete-mission-btnが見つかりません');
-    }
-    
-    const backHomeMissionBtn = document.getElementById('back-home-mission-btn');
-    if (backHomeMissionBtn) {
-        backHomeMissionBtn.addEventListener('click', () => {
-            showScreen('home');
-        });
-    } else {
-        console.error('back-home-mission-btnが見つかりません');
     }
     
     console.log('イベントリスナーの設定が完了しました');
@@ -376,45 +298,10 @@ async function handleLogout() {
     stopLocationTracking();
 }
 
-// スポットデータ読み込み
+// スポットデータ読み込み（MVPでは使用しない）
 async function loadSpotData() {
-    try {
-        const { data: spots, error } = await supabaseClient
-            .from('spots')
-            .select('*')
-            .eq('is_active', true)
-            .single();
-        
-        if (error) throw error;
-        
-        currentSpot = spots;
-        
-        // ホーム画面に表示
-        document.getElementById('spot-name').textContent = spots.name;
-        document.getElementById('spot-description').textContent = spots.description;
-        
-        // 現在地を取得して距離を計算
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const distance = calculateDistance(
-                        position.coords.latitude,
-                        position.coords.longitude,
-                        spots.target_latitude,
-                        spots.target_longitude
-                    );
-                    document.getElementById('spot-distance').textContent = distance.toFixed(1) + 'm';
-                },
-                (error) => {
-                    document.getElementById('spot-distance').textContent = '位置情報を取得できません';
-                }
-            );
-        }
-    } catch (error) {
-        console.error('スポットデータの読み込みに失敗しました:', error);
-        document.getElementById('spot-name').textContent = 'データ読み込みエラー';
-        document.getElementById('spot-description').textContent = 'スポット情報を取得できませんでした';
-    }
+    // MVPではSupabaseからのデータ読み込みを使用しない
+    console.log('loadSpotData: MVPでは使用しない関数です');
 }
 
 // みちびき受信機接続
@@ -587,57 +474,20 @@ function stopLocationTracking() {
     }
 }
 
-// ピタッと判定
+// ピタッと判定（MVP用：簡易版）
 function checkPosition() {
-    if (!currentPosition || !currentSpot) {
-        document.getElementById('position-result').textContent = '位置情報を取得できません';
-        document.getElementById('position-result').classList.add('error');
-        return;
-    }
-    
-    if (!receiverConnected) {
-        document.getElementById('position-result').textContent = 'みちびき受信機が接続されていません';
-        document.getElementById('position-result').classList.add('error');
-        return;
-    }
-    
-    const distance = calculateDistance(
-        currentPosition.latitude,
-        currentPosition.longitude,
-        currentSpot.target_latitude,
-        currentSpot.target_longitude
-    );
-    
+    // MVPテスト用：常に成功とみなして発見画面へ遷移
     const resultEl = document.getElementById('position-result');
-    const positionCircle = document.getElementById('position-circle');
-    
-    // みちびき受信機による数cm精度判定
-    const tolerance = 0.1; // 10cm
-    
-    if (distance < tolerance) {
+    if (resultEl) {
         resultEl.textContent = '🎉 ピタッと正解！';
         resultEl.classList.remove('error');
         resultEl.classList.add('success');
-        
-        // 発見画面へ遷移
-        setTimeout(() => {
-            showDiscoveryScreen();
-        }, 1000);
-        positionCircle.classList.add('success');
-        positionCircle.classList.remove('error');
-        
-        // 写真撮影ボタンを表示
-        document.getElementById('photo-btn').classList.remove('hidden');
-        
-        // 達成記録を保存
-        recordAchievement('position');
-    } else {
-        resultEl.textContent = `❌ あと${distance.toFixed(2)}mです`;
-        resultEl.classList.remove('success');
-        resultEl.classList.add('error');
-        positionCircle.classList.add('error');
-        positionCircle.classList.remove('success');
     }
+    
+    // 発見画面へ遷移
+    setTimeout(() => {
+        showDiscoveryScreen();
+    }, 1000);
 }
 
 // 距離計算（Haversine formula）
