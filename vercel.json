@@ -1,7 +1,7 @@
 {
-  "installCommand": "npm install",
-  "buildCommand": "cd artifacts/geo-puzzle && npm run build",
-  "outputDirectory": "artifacts/geo-puzzle/dist",
+  "installCommand": "corepack enable && corepack pnpm install --frozen-lockfile",
+  "buildCommand": "BASE_PATH=/ PORT=3000 pnpm --filter @workspace/geo-puzzle run build",
+  "outputDirectory": "artifacts/geo-puzzle/dist/public",
   "framework": "vite",
   "rewrites": [
     {
