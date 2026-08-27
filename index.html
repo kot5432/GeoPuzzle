@@ -15,23 +15,7 @@
                 <p class="subtitle">観光スポットをピタッと見つけよう</p>
                 
                 <div class="auth-form">
-                    <form id="auth-form" onsubmit="return false;">
-                        <div class="form-group">
-                            <label for="email">メールアドレス</label>
-                            <input type="email" id="email" placeholder="example@mail.com" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="password">パスワード</label>
-                            <input type="password" id="password" placeholder="パスワード" required minlength="6">
-                        </div>
-                        <button type="button" id="login-btn" class="btn primary">ログイン</button>
-                        <button type="button" id="signup-btn" class="btn secondary">新規登録</button>
-                    </form>
-                </div>
-                
-                <div class="oauth-buttons">
-                    <button id="google-login-btn" class="btn oauth">Googleでログイン</button>
-                    <button id="github-login-btn" class="btn oauth">GitHubでログイン</button>
+                    <button id="login-btn" class="btn primary large">ログイン（MVP開発用）</button>
                 </div>
                 
                 <p id="auth-error" class="error-message"></p>
@@ -117,32 +101,6 @@
             </div>
         </div>
 
-        <!-- 写真撮影画面 -->
-        <div id="photo-screen" class="screen hidden">
-            <div class="container">
-                <header class="app-header">
-                    <button id="back-nav-btn" class="btn small">← 戻る</button>
-                    <h1>写真撮影</h1>
-                    <div class="spacer"></div>
-                </header>
-                
-                <div class="photo-container">
-                    <div id="photo-frame" class="photo-frame">
-                        <video id="camera-preview" autoplay playsinline></video>
-                        <canvas id="photo-canvas" class="hidden"></canvas>
-                        <img id="captured-photo" class="hidden">
-                    </div>
-                    
-                    <div class="photo-controls">
-                        <button id="capture-btn" class="btn primary large">撮影</button>
-                        <button id="retake-btn" class="btn secondary hidden">撮り直し</button>
-                        <button id="save-photo-btn" class="btn success hidden">保存</button>
-                        <button id="share-photo-btn" class="btn secondary hidden">SNSで共有</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- 発見画面 -->
         <div id="discovery-screen" class="screen hidden">
             <div class="container">
@@ -207,7 +165,6 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/@supabase/supabase-js@2.39.0"></script>
     <script src="app.js"></script>
 </body>
 </html>

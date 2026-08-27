@@ -65,31 +65,6 @@ body {
     margin-bottom: 20px;
 }
 
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: #333;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.3s;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
 .btn {
     width: 100%;
     padding: 14px;
@@ -131,17 +106,6 @@ body {
     box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
 }
 
-.btn.oauth {
-    background: white;
-    border: 2px solid #e0e0e0;
-    color: #333;
-}
-
-.btn.oauth:hover {
-    border-color: #667eea;
-    color: #667eea;
-}
-
 .btn.large {
     padding: 18px;
     font-size: 1.1rem;
@@ -151,12 +115,6 @@ body {
     width: auto;
     padding: 8px 16px;
     font-size: 0.9rem;
-}
-
-.oauth-buttons {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #e0e0e0;
 }
 
 .error-message {
@@ -465,44 +423,8 @@ body {
     color: #e74c3c;
 }
 
-/* 写真撮影画面 */
-.photo-container {
-    background: white;
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-}
-
-.photo-frame {
-    position: relative;
-    width: 100%;
-    height: 300px;
-    background: #f0f0f0;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 20px;
-    border: 4px solid #667eea;
-}
-
-#camera-preview,
-#captured-photo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-#photo-canvas {
-    display: none;
-}
-
 .hidden {
     display: none !important;
-}
-
-.photo-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
 }
 
 /* ミッション画面 */
