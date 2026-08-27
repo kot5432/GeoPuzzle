@@ -662,6 +662,12 @@ body {
   justify-content: space-between;
 }
 
+.explore-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .explore-title {
   font-size: 28px;
   font-weight: 900;
@@ -700,6 +706,144 @@ body {
   grid-template-columns: 1fr 420px;
   gap: 16px;
   align-items: start;
+}
+
+.explore-grid > .debug-panel {
+  grid-column: 1 / -1;
+}
+
+/* Debug Toggle Button */
+.debug-toggle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-white);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.debug-toggle-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Debug Panel */
+.debug-panel {
+  background: var(--card-dark);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(224, 92, 53, 0.3);
+}
+
+.debug-panel.hidden {
+  display: none;
+}
+
+.debug-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.debug-panel-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.debug-panel-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.debug-panel-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.debug-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.debug-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.debug-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.debug-value {
+  color: white;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+}
+
+.debug-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.debug-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.debug-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.debug-btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.debug-btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.debug-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Map Panel */
@@ -1113,6 +1257,172 @@ body {
   padding: 48px 24px;
   color: var(--text-muted);
   font-size: 13px;
+}
+
+/* Mission Select List */
+.mission-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mission-select-item {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s;
+}
+
+.mission-select-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mission-select-item.completed {
+  opacity: 0.6;
+  background: rgba(76, 175, 80, 0.1);
+  border-color: rgba(76, 175, 80, 0.3);
+}
+
+.mission-select-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mission-select-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.mission-select-details {
+  min-width: 0;
+}
+
+.mission-select-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 3px;
+}
+
+.mission-select-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mission-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.mission-select-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.mission-select-btn:disabled {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: not-allowed;
+}
+
+/* Hints Section */
+.hints-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hints-label {
+  font-family: 'Outfit', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.hints-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hint-item {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+}
+
+.hint-level {
+  font-family: 'Outfit', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+}
+
+.next-hint-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.next-hint-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.next-hint-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===================================

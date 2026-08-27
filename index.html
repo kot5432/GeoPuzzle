@@ -90,22 +90,18 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                 </svg>
-                MISSION 04 / 12
+                MISSION SELECT
               </div>
-              <p class="hero-greeting">kさん、次のランドマークを探そう。</p>
+              <p class="hero-greeting">kさん、次のミッションを選ぼう。</p>
               <h1 class="hero-title">
-                街の中に、<br><em>まだ知らない</em><br>景色がある。
+                海王丸パークの<br><em>特別な一点</em><br>を探そう。
               </h1>
             </div>
             <div class="hero-bottom">
-              <div class="hero-clue-label">TODAY'S CLUE</div>
-              <p class="hero-clue-text">「石段の先で、街の喧騒が一度だけ消える場所。」</p>
-              <button class="btn-explore" id="resume-explore-btn">
-                探索を再開
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </button>
+              <div class="hero-clue-label">AVAILABLE MISSIONS</div>
+              <div class="mission-select-list" id="mission-select-list">
+                <!-- ミッションがJavaScriptで動的に追加される -->
+              </div>
             </div>
           </div>
 
@@ -262,17 +258,52 @@
       <div class="page-content">
 
         <div class="explore-header">
-          <div class="explore-breadcrumb">MISSION 04 / NAVIGATE</div>
+          <div class="explore-breadcrumb" id="explore-breadcrumb">MISSION 01 / NAVIGATE</div>
           <div class="explore-title-row">
             <h1 class="explore-title">手がかりを追う。</h1>
-            <div class="badge-exploring">
-              <span class="badge-dot"></span>
-              探索中
+            <div class="explore-header-actions">
+              <button class="debug-toggle-btn" id="toggle-debug-btn" title="デバッグパネル">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
+                </svg>
+              </button>
+              <div class="badge-exploring">
+                <span class="badge-dot"></span>
+                探索中
+              </div>
             </div>
           </div>
         </div>
 
         <div class="explore-grid">
+
+          <!-- Debug Panel (only visible in debug mode) -->
+          <div id="debug-panel" class="debug-panel">
+            <div class="debug-panel-header">
+              <span class="debug-panel-title">デバッグパネル</span>
+              <button class="debug-panel-close" id="toggle-debug-btn">×</button>
+            </div>
+            <div class="debug-panel-content">
+              <div class="debug-info-row">
+                <span class="debug-label">デバッグモード:</span>
+                <span class="debug-value" id="debug-mode-status">有効</span>
+              </div>
+              <div class="debug-info-row">
+                <span class="debug-label">現在の距離:</span>
+                <span class="debug-value" id="debug-distance">86m</span>
+              </div>
+              <div class="debug-divider"></div>
+              <div class="debug-actions">
+                <button class="debug-btn debug-btn-primary" id="force-clear-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  強制クリア
+                </button>
+              </div>
+            </div>
+          </div>
 
           <!-- Map Panel -->
           <div class="map-panel">
@@ -342,13 +373,26 @@
           <!-- Clue Panel -->
           <div class="clue-panel">
             <div class="clue-header">
-              <span class="clue-badge">CLUE 01</span>
+              <span class="clue-badge">CLUE</span>
               <button class="clue-help-btn">?</button>
             </div>
 
             <div>
-              <h2 class="clue-title">石段の先で、<br><em>街の喧騒が消える。</em></h2>
-              <p class="clue-desc">隈研吾の建築と、静かな境内。神楽坂の路地から探してみよう。</p>
+              <h2 class="clue-title" id="explore-mission-title">手がかりを追う。</h2>
+              <p class="clue-desc" id="explore-mission-desc">ヒントを頼りに目的地を探そう。</p>
+            </div>
+
+            <div class="hints-section">
+              <div class="hints-label">HINTS</div>
+              <div class="hints-container" id="hints-container">
+                <!-- ヒントが動的に追加される -->
+              </div>
+              <button class="next-hint-btn" id="next-hint-btn">
+                次のヒント
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
             </div>
 
             <div class="clue-distance-section">
@@ -360,7 +404,7 @@
                 </div>
                 <div class="clue-distance-meta">
                   <div class="clue-walk-time">徒歩 8分</div>
-                  <div class="clue-location">東京都 新宿区</div>
+                  <div class="clue-location">富山県 射水市</div>
                 </div>
               </div>
             </div>
@@ -468,12 +512,13 @@
     <!-- ===== DISCOVERY MODAL ===== -->
     <div id="discovery-overlay" class="hidden" style="position:fixed;inset:0;background:rgba(28,46,58,0.7);z-index:200;display:flex;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:24px;padding:40px 36px;max-width:440px;width:90%;text-align:center;position:relative;">
-        <div style="font-size:52px;margin-bottom:16px;animation:bounceAnim 0.6s ease-in-out;">🎉</div>
+        <div style="font-size:52px;margin-bottom:16px;animation:bounceAnim 0.6s ease-in-out;" id="discovery-icon">🎉</div>
         <div style="font-family:'Outfit',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.14em;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">DISCOVERED</div>
-        <h2 style="font-size:24px;font-weight:900;color:var(--text-primary);margin-bottom:6px;">神楽坂の赤城神社</h2>
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;line-height:1.6;">東京都 新宿区・東京の静かな屋上神社</p>
+        <h2 style="font-size:24px;font-weight:900;color:var(--text-primary);margin-bottom:6px;" id="discovery-title">発見！</h2>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;line-height:1.6;" id="discovery-message">特別な一点を見つけました。</p>
         <div style="background:var(--bg);border-radius:14px;padding:18px;margin-bottom:24px;text-align:left;">
-          <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;">隈研吾設計の現代的な社殿をまとった赤城神社。神楽坂の石畳の路地を抜けた先に佇む、街の喧騒から切り離された静謐な空間。</p>
+          <div style="font-family:'Outfit',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.12em;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">REWARD</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);" id="reward-badge">絶景発見者</div>
         </div>
         <div style="display:flex;gap:10px;flex-direction:column;">
           <button id="add-collection-btn" class="btn-explore" style="width:100%;justify-content:center;">コレクションに追加</button>
