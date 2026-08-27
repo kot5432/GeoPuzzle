@@ -1,263 +1,303 @@
-// アプリケーション状態
-let currentUser = null;
-let currentSpot = null;
-let currentHintIndex = 0;
+/* ===================================
+   GeoPuzzle App Logic
+   =================================== */
 
-// DOM要素
-const screens = {
-    login: document.getElementById('login-screen'),
-    home: document.getElementById('home-screen'),
-    navigation: document.getElementById('navigation-screen'),
-    discovery: document.getElementById('discovery-screen'),
-    collection: document.getElementById('collection-screen')
+// ===================================
+// State
+// ===================================
+let currentUser = { id: 'demo', name: 'k', email: 'k.kyogaku.123@gmail.com' };
+let currentScreen = 'home';
+let collection = JSON.parse(localStorage.getItem('geopuzzle_collection') || '[]');
+
+// Demo spot data
+const SPOTS = [
+  {
+    id: 'akagi',
+    name: '神楽坂の赤城神社',
+    place: '東京都 新宿区・東京の静かな屋上神社',
+    date: 'JUN 18, 2025',
+    status: '探索中',
+    icon: '📍',
+  },
+];
+
+// ===================================
+// Screen Management
+// ===================================
+const NAV_IDS = ['nav-home', 'nav-explore', 'nav-record'];
+const SCREEN_IDS = {
+  home: 'home-screen',
+  explore: 'explore-screen',
+  record: 'record-screen',
 };
 
-// 初期化
-function init() {
-    setupEventListeners();
-    showScreen('login');
+function showScreen(name) {
+  // Hide all screens inside main-app
+  Object.values(SCREEN_IDS).forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+
+  // Show target screen
+  const target = document.getElementById(SCREEN_IDS[name]);
+  if (target) target.classList.remove('hidden');
+
+  // Update nav active state
+  NAV_IDS.forEach((navId) => {
+    const btn = document.getElementById(navId);
+    if (!btn) return;
+    const screen = btn.dataset.screen;
+    btn.classList.toggle('active', screen === name);
+  });
+
+  currentScreen = name;
+
+  // Screen-specific actions
+  if (name === 'record') renderDiscoveryList();
 }
 
-// 画面切り替え
-function showScreen(screenName) {
-    Object.values(screens).forEach(screen => screen.classList.add('hidden'));
-    screens[screenName].classList.remove('hidden');
+// ===================================
+// Init
+// ===================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Check if already "logged in" (demo: always show login first)
+  const loginScreen = document.getElementById('login-screen');
+  const mainApp = document.getElementById('main-app');
+
+  // Login
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      loginScreen.classList.add('hidden');
+      mainApp.classList.remove('hidden');
+      showScreen('home');
+    });
+  }
+
+  // Nav links
+  NAV_IDS.forEach((navId) => {
+    const btn = document.getElementById(navId);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      showScreen(btn.dataset.screen);
+    });
+  });
+
+  // Logo click → home
+  const logoBtn = document.getElementById('nav-logo-btn');
+  if (logoBtn) {
+    logoBtn.addEventListener('click', () => showScreen('home'));
+  }
+
+  // Home → Explore
+  const resumeBtn = document.getElementById('resume-explore-btn');
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', () => showScreen('explore'));
+  }
+
+  // Explore: Update Location
+  const updateLocationBtn = document.getElementById('update-location-btn');
+  if (updateLocationBtn) {
+    updateLocationBtn.addEventListener('click', simulateLocationUpdate);
+  }
+
+  // Explore: Check Arrival
+  const checkArriveBtn = document.getElementById('check-arrive-btn');
+  if (checkArriveBtn) {
+    checkArriveBtn.addEventListener('click', checkArrival);
+  }
+
+  // Discovery overlay buttons
+  const addCollectionBtn = document.getElementById('add-collection-btn');
+  if (addCollectionBtn) {
+    addCollectionBtn.addEventListener('click', () => {
+      addToCollection('akagi');
+      closeDiscovery();
+      showScreen('record');
+    });
+  }
+
+  const backHomeDiscoveryBtn = document.getElementById('back-home-discovery-btn');
+  if (backHomeDiscoveryBtn) {
+    backHomeDiscoveryBtn.addEventListener('click', () => {
+      closeDiscovery();
+      showScreen('home');
+    });
+  }
+
+  // Logout
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      mainApp.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+    });
+  }
+
+  // Update user avatar/name display
+  updateUserUI();
+
+  // Start distance counter animation on explore screen
+  startDistanceAnimation();
+});
+
+// ===================================
+// User UI
+// ===================================
+function updateUserUI() {
+  const initial = currentUser.name.charAt(0).toUpperCase();
+
+  const navAvatar = document.getElementById('nav-avatar');
+  if (navAvatar) navAvatar.textContent = initial;
+
+  const recordAvatar = document.getElementById('record-avatar');
+  if (recordAvatar) recordAvatar.textContent = initial;
+
+  const recordName = document.getElementById('record-name');
+  if (recordName) recordName.textContent = `${currentUser.name}さんの記録`;
+
+  const recordEmail = document.getElementById('record-email');
+  if (recordEmail) recordEmail.textContent = currentUser.email;
 }
 
-// イベントリスナー設定
-function setupEventListeners() {
-    console.log('イベントリスナーを設定中...');
-    
-    // ログインボタン
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-            console.log('ログインボタンがクリックされました');
-            currentUser = { id: 'mvp-user' };
-            showScreen('home');
-        });
-    }
-    
-    // ログアウトボタン
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            console.log('ログアウトボタンがクリックされました');
-            currentUser = null;
-            showScreen('login');
-        });
-    }
-    
-    // コレクションボタン
-    const collectionBtn = document.getElementById('collection-btn');
-    if (collectionBtn) {
-        collectionBtn.addEventListener('click', () => {
-            console.log('コレクションボタンがクリックされました');
-            showCollectionScreen();
-        });
-    }
-    
-    // 海王丸探索開始ボタン
-    const startKaiomaruBtn = document.getElementById('start-kaiomaru-btn');
-    if (startKaiomaruBtn) {
-        startKaiomaruBtn.addEventListener('click', (e) => {
-            console.log('海王丸探索開始ボタンがクリックされました');
-            startKaiomaruExploration(e);
-        });
-    }
-    
-    // 次のヒントボタン
-    const nextHintBtn = document.getElementById('next-hint-btn');
-    if (nextHintBtn) {
-        nextHintBtn.addEventListener('click', showNextHint);
-    }
-    
-    // 発見画面ボタン
-    const backExploreBtn = document.getElementById('back-explore-btn');
-    if (backExploreBtn) {
-        backExploreBtn.addEventListener('click', () => {
-            showScreen('navigation');
-        });
-    }
-    
-    const addCollectionBtn = document.getElementById('add-collection-btn');
-    if (addCollectionBtn) {
-        addCollectionBtn.addEventListener('click', addToCollection);
-    }
-    
-    const backHomeDiscoveryBtn = document.getElementById('back-home-discovery-btn');
-    if (backHomeDiscoveryBtn) {
-        backHomeDiscoveryBtn.addEventListener('click', () => {
-            showScreen('home');
-        });
-    }
-    
-    // コレクション画面ボタン
-    const backHomeCollectionBtn = document.getElementById('back-home-collection-btn');
-    if (backHomeCollectionBtn) {
-        backHomeCollectionBtn.addEventListener('click', () => {
-            showScreen('home');
-        });
-    }
-    
-    // 誘導画面
-    const backHomeBtn = document.getElementById('back-home-btn');
-    if (backHomeBtn) {
-        backHomeBtn.addEventListener('click', () => {
-            showScreen('home');
-        });
-    }
-    
-    const checkPositionBtn = document.getElementById('check-position-btn');
-    if (checkPositionBtn) {
-        checkPositionBtn.addEventListener('click', checkPosition);
-    }
-    
-    console.log('イベントリスナーの設定が完了しました');
+// ===================================
+// Location Simulation
+// ===================================
+let currentDistance = 86;
+
+function startDistanceAnimation() {
+  // Gently oscillate distance to simulate movement
+  setInterval(() => {
+    const delta = Math.floor(Math.random() * 7) - 3;
+    currentDistance = Math.max(10, currentDistance + delta);
+    const distEl = document.getElementById('explore-distance');
+    if (distEl) distEl.textContent = currentDistance;
+  }, 3000);
 }
 
-// 海王丸探索開始
-function startKaiomaruExploration(e) {
-    e.preventDefault();
-    console.log('海王丸探索を開始します');
-    
-    // 海王丸のスポット情報を設定
-    currentSpot = {
-        id: 'kaiomaru',
-        name: '海王丸',
-        description: '金沢港に展示されている練習船',
-        latitude: 36.5678,
-        longitude: 136.6543
-    };
-    
-    // ヒントをリセット
-    currentHintIndex = 0;
-    resetHints();
-    
-    // 探索画面へ遷移
-    showScreen('navigation');
+function simulateLocationUpdate() {
+  const btn = document.getElementById('update-location-btn');
+  if (!btn) return;
+
+  btn.textContent = '更新中...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    // Decrease distance to simulate approach
+    currentDistance = Math.max(15, currentDistance - Math.floor(Math.random() * 20 + 5));
+    const distEl = document.getElementById('explore-distance');
+    if (distEl) distEl.textContent = currentDistance;
+
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+      現在地を更新
+    `;
+    btn.disabled = false;
+  }, 1200);
 }
 
-// ヒント管理
-function showNextHint() {
-    currentHintIndex++;
-    
-    if (currentHintIndex >= 3) {
-        // 全ヒント表示済み
-        document.getElementById('next-hint-btn').textContent = 'ヒントは全て表示されました';
-        document.getElementById('next-hint-btn').disabled = true;
-        return;
+// ===================================
+// Arrival Check
+// ===================================
+function checkArrival() {
+  // MVP: always succeeds after a moment
+  const btn = document.getElementById('check-arrive-btn');
+  if (btn) {
+    btn.textContent = '判定中...';
+    btn.disabled = true;
+  }
+
+  setTimeout(() => {
+    if (btn) {
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        到着判定
+      `;
+      btn.disabled = false;
     }
-    
-    const nextHint = document.getElementById(`hint-${currentHintIndex + 1}`);
-    if (nextHint) {
-        nextHint.classList.remove('hidden');
-    }
+    showDiscovery();
+  }, 1000);
 }
 
-function resetHints() {
-    currentHintIndex = 0;
-    for (let i = 2; i <= 3; i++) {
-        const hint = document.getElementById(`hint-${i}`);
-        if (hint) {
-            hint.classList.add('hidden');
-        }
-    }
-    
-    const nextHintBtn = document.getElementById('next-hint-btn');
-    if (nextHintBtn) {
-        nextHintBtn.textContent = '次のヒント';
-        nextHintBtn.disabled = false;
-    }
+// ===================================
+// Discovery Overlay
+// ===================================
+function showDiscovery() {
+  const overlay = document.getElementById('discovery-overlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+    overlay.style.display = 'flex';
+  }
 }
 
-// 到着判定（MVP用：簡易版）
-function checkPosition() {
-    // MVPテスト用：常に成功とみなして発見画面へ遷移
-    const resultEl = document.getElementById('position-result');
-    if (resultEl) {
-        resultEl.textContent = '🎉 ピタッと正解！';
-        resultEl.classList.remove('error');
-        resultEl.classList.add('success');
-    }
-    
-    // 発見画面へ遷移
-    setTimeout(() => {
-        showDiscoveryScreen();
-    }, 1000);
+function closeDiscovery() {
+  const overlay = document.getElementById('discovery-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.style.display = 'none';
+  }
 }
 
-// 発見画面を表示
-function showDiscoveryScreen() {
-    showScreen('discovery');
+// ===================================
+// Collection
+// ===================================
+function addToCollection(spotId) {
+  if (!collection.includes(spotId)) {
+    collection.push(spotId);
+    localStorage.setItem('geopuzzle_collection', JSON.stringify(collection));
+  }
+  updateStats();
 }
 
-// コレクションに追加
-function addToCollection() {
-    console.log('コレクションに追加します');
-    
-    // ローカルストレージに保存
-    let collection = JSON.parse(localStorage.getItem('geopuzzle_collection') || '[]');
-    
-    if (!collection.includes(currentSpot.id)) {
-        collection.push(currentSpot.id);
-        localStorage.setItem('geopuzzle_collection', JSON.stringify(collection));
-        alert('コレクションに追加しました！');
-    } else {
-        alert('すでにコレクションに追加されています');
-    }
-    
-    // ホーム画面へ
-    showScreen('home');
+function updateStats() {
+  const count = collection.length;
+  const els = [
+    document.getElementById('home-stat-spots'),
+    document.getElementById('record-stat-cleared'),
+    document.getElementById('record-stat-cities'),
+    document.getElementById('record-stat-photos'),
+  ];
+  els.forEach((el) => {
+    if (el) el.textContent = String(count).padStart(2, '0');
+  });
+
+  const countLabel = document.getElementById('record-count');
+  if (countLabel) countLabel.textContent = `${String(count).padStart(2, '0')} / 12 LOCATIONS`;
 }
 
-// コレクション画面を表示
-function showCollectionScreen() {
-    loadCollection();
-    showScreen('collection');
-}
+// ===================================
+// Discovery List Render
+// ===================================
+function renderDiscoveryList() {
+  const list = document.getElementById('discovery-list');
+  if (!list) return;
 
-// コレクションを読み込み
-function loadCollection() {
-    const collection = JSON.parse(localStorage.getItem('geopuzzle_collection') || '[]');
-    const collectionCount = document.getElementById('collection-count');
-    const collectionList = document.getElementById('collection-list');
-    
-    // 発見数を更新
-    collectionCount.textContent = collection.length;
-    
-    // コレクションリストを更新
-    if (collection.length === 0) {
-        collectionList.innerHTML = '<p class="empty-message">まだ発見したスポットがありません</p>';
-    } else {
-        collectionList.innerHTML = '';
-        
-        // 海王丸の情報
-        const spots = {
-            'kaiomaru': {
-                name: '海王丸',
-                description: '金沢港に展示されている練習船',
-                icon: '⚓'
-            }
-        };
-        
-        collection.forEach(spotId => {
-            const spot = spots[spotId];
-            if (spot) {
-                const item = document.createElement('div');
-                item.className = 'collection-item';
-                item.innerHTML = `
-                    <div class="collection-item-icon">${spot.icon}</div>
-                    <div class="collection-item-info">
-                        <h4>${spot.name}</h4>
-                        <p>${spot.description}</p>
-                    </div>
-                `;
-                collectionList.appendChild(item);
-            }
-        });
-    }
-}
+  // Merge saved collection with demo spots
+  const toShow = collection.length > 0
+    ? SPOTS.filter((s) => collection.includes(s.id))
+    : SPOTS; // show demo data even before discovering
 
-// DOMContentLoadedイベントで初期化
-document.addEventListener('DOMContentLoaded', init);
+  if (toShow.length === 0) {
+    list.innerHTML = '<div class="empty-state">まだ発見したスポットがありません</div>';
+    return;
+  }
+
+  list.innerHTML = toShow.map((spot) => `
+    <div class="discovery-item">
+      <div class="discovery-item-thumb dark">${spot.icon}</div>
+      <div class="discovery-item-info">
+        <div class="discovery-item-name">${spot.name}</div>
+        <div class="discovery-item-place">${spot.place}</div>
+      </div>
+      <div class="discovery-item-right">
+        <div class="discovery-item-date">${spot.date}</div>
+        <div class="discovery-item-status">${spot.status}</div>
+      </div>
+    </div>
+  `).join('');
+}
