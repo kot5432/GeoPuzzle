@@ -922,6 +922,83 @@ body {
   justify-content: space-between;
 }
 
+/* Serial Controls */
+.serial-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 12px 0;
+}
+
+.serial-status {
+  font-family: 'Outfit', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.serial-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #999;
+}
+
+.serial-status.connected::before {
+  background: #4CAF50;
+  animation: pulseDot 1.5s ease-in-out infinite;
+}
+
+.serial-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.serial-btn-connect {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.serial-btn-connect:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.serial-btn-disconnect {
+  background: rgba(224, 92, 53, 0.2);
+  color: #E05C35;
+  border: 1px solid rgba(224, 92, 53, 0.3);
+}
+
+.serial-btn-disconnect:hover {
+  background: rgba(224, 92, 53, 0.3);
+  border-color: rgba(224, 92, 53, 0.4);
+}
+
+.serial-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .clue-badge {
   font-family: 'Outfit', sans-serif;
   font-size: 10px;

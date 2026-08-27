@@ -15,8 +15,16 @@ let missionProgress = JSON.parse(localStorage.getItem('geopuzzle_mission_progres
 // Debug Mode Configuration
 const debugConfig = {
   debugMode: true,  // 開発時はtrue、本番時はfalse
-  forceClearEnabled: true  // 強制クリア機能の有効化
+  forceClearEnabled: true,  // 強制クリア機能の有効化
+  simulateQZSS: false  // みちびき受信機をシミュレート
 };
+
+// Serial Connection State
+let serialPort = null;
+let serialReader = null;
+let isConnected = false;
+let currentPosition = { latitude: null, longitude: null };
+let useQZSS = false;  // みちびきを使用するかどうか
 
 // Demo spot data
 const SPOTS = [
@@ -237,6 +245,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show debug panel by default in debug mode
     updateDebugUI();
   }
+
+  // Serial connection controls
+  const connectSerialBtn = document.getElementById('connect-serial-btn');
+  if (connectSerialBtn) {
+    connectSerialBtn.addEventListener('click', connectSerialPort);
+  }
+
+  const disconnectSerialBtn = document.getElementById('disconnect-serial-btn');
+  if (disconnectSerialBtn) {
+    disconnectSerialBtn.addEventListener('click', disconnectSerialPort);
+  }
+
+  // Initialize serial connection UI
+  updateSerialConnectionUI();
 });
 
 // ===================================
@@ -264,12 +286,14 @@ function updateUserUI() {
 let currentDistance = 86;
 
 function startDistanceAnimation() {
-  // Gently oscillate distance to simulate movement
+  // Gently oscillate distance to simulate movement (only when not using QZSS)
   setInterval(() => {
-    const delta = Math.floor(Math.random() * 7) - 3;
-    currentDistance = Math.max(10, currentDistance + delta);
-    const distEl = document.getElementById('explore-distance');
-    if (distEl) distEl.textContent = currentDistance;
+    if (!useQZSS) {
+      const delta = Math.floor(Math.random() * 7) - 3;
+      currentDistance = Math.max(10, currentDistance + delta);
+      const distEl = document.getElementById('explore-distance');
+      if (distEl) distEl.textContent = currentDistance;
+    }
 
     // Update debug UI if in debug mode
     if (debugConfig.debugMode) {
@@ -306,7 +330,6 @@ function simulateLocationUpdate() {
 // Arrival Check
 // ===================================
 function checkArrival() {
-  // MVP: always succeeds after a moment
   const btn = document.getElementById('check-arrive-btn');
   if (btn) {
     btn.textContent = '判定中...';
@@ -314,6 +337,29 @@ function checkArrival() {
   }
 
   setTimeout(() => {
+    let arrived = false;
+
+    if (useQZSS && currentPosition.latitude && currentPosition.longitude) {
+      // Use actual QZSS position data
+      const mission = MISSIONS.find(m => m.id === currentMissionId);
+      if (mission) {
+        const distance = calculateDistance(
+          currentPosition.latitude,
+          currentPosition.longitude,
+          mission.targetLocation.latitude,
+          mission.targetLocation.longitude
+        );
+
+        // Check if within tolerance (50cm for QZSS)
+        arrived = distance <= mission.targetLocation.tolerance;
+        console.log(`Distance to target: ${distance.toFixed(2)}m, Tolerance: ${mission.targetLocation.tolerance}m, Arrived: ${arrived}`);
+      }
+    } else {
+      // MVP fallback: always succeed in debug mode
+      arrived = debugConfig.debugMode;
+      console.log('Using debug mode fallback for arrival check');
+    }
+
     if (btn) {
       btn.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
@@ -324,12 +370,15 @@ function checkArrival() {
       btn.disabled = false;
     }
 
-    // Mark mission as completed
-    if (currentMissionId) {
-      completeMission(currentMissionId);
+    if (arrived) {
+      // Mark mission as completed
+      if (currentMissionId) {
+        completeMission(currentMissionId);
+      }
+      showDiscovery();
+    } else {
+      alert('まだ目標地点に到着していません。もっと近づいてください。');
     }
-
-    showDiscovery();
   }, 1000);
 }
 
@@ -364,6 +413,211 @@ function forceClear() {
   showDiscovery();
 }
 
+// ===================================
+// Web Serial API Functions
+// ===================================
+async function connectSerialPort() {
+  try {
+    // Check if Web Serial API is supported
+    if (!navigator.serial) {
+      alert('Web Serial APIはこのブラウザでサポートされていません。ChromeまたはEdgeを使用してください。');
+      return;
+    }
+
+    // Request port from user
+    serialPort = await navigator.serial.requestPort();
+
+    // Open port with QZ1 default baud rate
+    await serialPort.open({ baudRate: 115200 });
+
+    isConnected = true;
+    useQZSS = true;
+    updateSerialConnectionUI();
+
+    // Start reading data
+    readSerialData();
+
+    console.log('Serial port connected successfully');
+  } catch (error) {
+    console.error('Serial port connection failed:', error);
+    alert('シリアルポートの接続に失敗しました: ' + error.message);
+  }
+}
+
+async function disconnectSerialPort() {
+  try {
+    if (serialReader) {
+      await serialReader.cancel();
+      serialReader = null;
+    }
+
+    if (serialPort) {
+      await serialPort.close();
+      serialPort = null;
+    }
+
+    isConnected = false;
+    useQZSS = false;
+    updateSerialConnectionUI();
+
+    console.log('Serial port disconnected');
+  } catch (error) {
+    console.error('Serial port disconnection failed:', error);
+  }
+}
+
+async function readSerialData() {
+  while (serialPort && serialPort.readable) {
+    serialReader = serialPort.readable.getReader();
+    try {
+      while (true) {
+        const { value, done } = await serialReader.read();
+        if (done) {
+          break;
+        }
+
+        // Convert received data to string and process NMEA sentences
+        const text = new TextDecoder().decode(value);
+        processNMEAData(text);
+      }
+    } catch (error) {
+      console.error('Serial read error:', error);
+    } finally {
+      serialReader.releaseLock();
+    }
+  }
+}
+
+function processNMEAData(data) {
+  // Split data into lines and process each NMEA sentence
+  const lines = data.split('\n');
+  lines.forEach(line => {
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith('$') && trimmedLine.length > 0) {
+      parseNMEASentence(trimmedLine);
+    }
+  });
+}
+
+function parseNMEASentence(sentence) {
+  // Parse NMEA-0183 sentences
+  // Example: $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
+
+  if (sentence.startsWith('$GPGGA') || sentence.startsWith('$GNGGA')) {
+    // GGA sentence contains position data
+    const parts = sentence.split(',');
+    if (parts.length >= 6) {
+      const time = parts[1];
+      const lat = parseNMEACoordinate(parts[2], parts[3]);
+      const lon = parseNMEACoordinate(parts[4], parts[5]);
+
+      if (lat && lon) {
+        currentPosition = { latitude: lat, longitude: lon };
+        updateDistanceFromTarget();
+        console.log('Position updated:', currentPosition);
+      }
+    }
+  } else if (sentence.startsWith('$GPRMC') || sentence.startsWith('$GNRMC')) {
+    // RMC sentence also contains position data
+    const parts = sentence.split(',');
+    if (parts.length >= 6) {
+      const lat = parseNMEACoordinate(parts[3], parts[4]);
+      const lon = parseNMEACoordinate(parts[5], parts[6]);
+
+      if (lat && lon) {
+        currentPosition = { latitude: lat, longitude: lon };
+        updateDistanceFromTarget();
+        console.log('Position updated:', currentPosition);
+      }
+    }
+  }
+}
+
+function parseNMEACoordinate(coord, direction) {
+  if (!coord || !direction) return null;
+
+  // NMEA coordinate format: DDMM.MMMM or DDDMM.MMMM
+  const degrees = Math.floor(parseFloat(coord) / 100);
+  const minutes = parseFloat(coord) - (degrees * 100);
+  const decimal = degrees + (minutes / 60);
+
+  // Apply direction (N/S for latitude, E/W for longitude)
+  if (direction === 'S' || direction === 'W') {
+    return -decimal;
+  }
+  return decimal;
+}
+
+function updateDistanceFromTarget() {
+  if (!currentMissionId || !currentPosition.latitude || !currentPosition.longitude) return;
+
+  const mission = MISSIONS.find(m => m.id === currentMissionId);
+  if (!mission) return;
+
+  const target = mission.targetLocation;
+  const distance = calculateDistance(
+    currentPosition.latitude,
+    currentPosition.longitude,
+    target.latitude,
+    target.longitude
+  );
+
+  // Update distance display
+  const distEl = document.getElementById('explore-distance');
+  if (distEl) {
+    distEl.textContent = Math.round(distance);
+  }
+
+  // Update debug UI
+  if (debugConfig.debugMode) {
+    updateDebugUI();
+  }
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  // Haversine formula for calculating distance between two coordinates
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c;
+}
+
+function updateSerialConnectionUI() {
+  const statusEl = document.getElementById('serial-status');
+  const connectBtn = document.getElementById('connect-serial-btn');
+  const disconnectBtn = document.getElementById('disconnect-serial-btn');
+
+  if (statusEl) {
+    statusEl.textContent = isConnected ? '接続中' : '未接続';
+    statusEl.classList.toggle('connected', isConnected);
+  }
+
+  if (connectBtn) {
+    connectBtn.style.display = isConnected ? 'none' : 'flex';
+  }
+
+  if (disconnectBtn) {
+    disconnectBtn.style.display = isConnected ? 'flex' : 'none';
+  }
+
+  // Update debug panel
+  if (debugConfig.debugMode) {
+    const qzssStatus = document.getElementById('qzss-status');
+    if (qzssStatus) {
+      qzssStatus.textContent = isConnected ? '接続中' : '未接続';
+      qzssStatus.style.color = isConnected ? '#4CAF50' : '#999';
+    }
+  }
+}
+
 function toggleDebugPanel() {
   const panel = document.getElementById('debug-panel');
   if (panel) {
@@ -390,6 +644,17 @@ function updateDebugUI() {
   const currentDistanceDebug = document.getElementById('debug-distance');
   if (currentDistanceDebug) {
     currentDistanceDebug.textContent = currentDistance + 'm';
+  }
+
+  const qzssStatus = document.getElementById('qzss-status');
+  if (qzssStatus) {
+    qzssStatus.textContent = isConnected ? '接続中' : '未接続';
+    qzssStatus.style.color = isConnected ? '#4CAF50' : '#999';
+  }
+
+  const currentPositionDebug = document.getElementById('debug-position');
+  if (currentPositionDebug && currentPosition.latitude && currentPosition.longitude) {
+    currentPositionDebug.textContent = `${currentPosition.latitude.toFixed(6)}, ${currentPosition.longitude.toFixed(6)}`;
   }
 }
 

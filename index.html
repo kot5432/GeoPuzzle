@@ -293,6 +293,14 @@
                 <span class="debug-label">現在の距離:</span>
                 <span class="debug-value" id="debug-distance">86m</span>
               </div>
+              <div class="debug-info-row">
+                <span class="debug-label">みちびき接続:</span>
+                <span class="debug-value" id="qzss-status">未接続</span>
+              </div>
+              <div class="debug-info-row">
+                <span class="debug-label">現在位置:</span>
+                <span class="debug-value" id="debug-position">-</span>
+              </div>
               <div class="debug-divider"></div>
               <div class="debug-actions">
                 <button class="debug-btn debug-btn-primary" id="force-clear-btn">
@@ -380,6 +388,24 @@
             <div>
               <h2 class="clue-title" id="explore-mission-title">手がかりを追う。</h2>
               <p class="clue-desc" id="explore-mission-desc">ヒントを頼りに目的地を探そう。</p>
+            </div>
+
+            <div class="serial-controls">
+              <div class="serial-status" id="serial-status">未接続</div>
+              <button class="serial-btn serial-btn-connect" id="connect-serial-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                  <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                  <path d="M12 6v6l4 2"/>
+                </svg>
+                みちびき接続
+              </button>
+              <button class="serial-btn serial-btn-disconnect" id="disconnect-serial-btn" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                切断
+              </button>
             </div>
 
             <div class="hints-section">
