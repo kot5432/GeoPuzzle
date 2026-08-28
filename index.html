@@ -262,7 +262,7 @@
           <div class="explore-title-row">
             <h1 class="explore-title">手がかりを追う。</h1>
             <div class="explore-header-actions">
-              <button class="debug-toggle-btn" id="toggle-debug-btn" title="デバッグパネル">
+              <button class="debug-toggle-btn" type="button" data-debug-toggle title="デバッグパネル">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
                   <circle cx="12" cy="12" r="3"/>
                   <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
@@ -276,13 +276,13 @@
           </div>
         </div>
 
-        <div class="explore-grid">
+        <div class="explore-grid" id="explore-grid">
 
           <!-- Debug Panel (only visible in debug mode) -->
           <div id="debug-panel" class="debug-panel">
             <div class="debug-panel-header">
               <span class="debug-panel-title">デバッグパネル</span>
-              <button class="debug-panel-close" id="toggle-debug-btn">×</button>
+              <button class="debug-panel-close" type="button" data-debug-toggle>×</button>
             </div>
             <div class="debug-panel-content">
               <div class="debug-info-row">
@@ -294,7 +294,11 @@
                 <span class="debug-value" id="debug-distance">86m</span>
               </div>
               <div class="debug-info-row">
-                <span class="debug-label">みちびき接続:</span>
+                <span class="debug-label">ゾーン:</span>
+                <span class="debug-value" id="debug-zone">—</span>
+              </div>
+              <div class="debug-info-row">
+                <span class="debug-label">測位:</span>
                 <span class="debug-value" id="qzss-status">未接続</span>
               </div>
               <div class="debug-info-row">
@@ -302,13 +306,24 @@
                 <span class="debug-value" id="debug-position">-</span>
               </div>
               <div class="debug-divider"></div>
+              <p class="debug-section-label">ヒント制御</p>
               <div class="debug-actions">
-                <button class="debug-btn debug-btn-primary" id="force-clear-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  強制クリア
-                </button>
+                <button class="debug-btn" type="button" id="debug-show-all-hints-btn">全ヒント表示</button>
+              </div>
+              <div class="debug-divider"></div>
+              <p class="debug-section-label">位置シミュレーション</p>
+              <div class="debug-actions debug-actions-grid">
+                <button class="debug-btn" type="button" id="debug-simulate-qzss-btn">QZ1 シミュレート</button>
+                <button class="debug-btn" type="button" id="debug-simulate-gps-btn">GPS シミュレート</button>
+                <button class="debug-btn" type="button" id="debug-teleport-approach-btn">接近圏 (8m)</button>
+                <button class="debug-btn" type="button" id="debug-teleport-hot-btn">発見圏 (2m)</button>
+              </div>
+              <div class="debug-divider"></div>
+              <p class="debug-section-label">ミッション制御</p>
+              <div class="debug-actions debug-actions-grid">
+                <button class="debug-btn debug-btn-primary" type="button" id="force-clear-btn">強制クリア</button>
+                <button class="debug-btn" type="button" id="debug-reset-missions-btn">全リセット</button>
+                <button class="debug-btn" type="button" id="debug-clear-all-btn">全クリア</button>
               </div>
             </div>
           </div>
@@ -390,16 +405,49 @@
               <p class="clue-desc" id="explore-mission-desc">ヒントを頼りに目的地を探そう。</p>
             </div>
 
+            <div class="position-status-block">
+              <div class="fix-status" id="fix-status" data-level="none">位置情報を取得中…</div>
+              <div class="zone-status" id="zone-status" data-zone="far">探索エリア外</div>
+              <div class="dwell-progress-wrap hidden">
+                <div class="dwell-progress-bar" id="dwell-progress-bar"></div>
+              </div>
+              <div class="dwell-progress-label hidden" id="dwell-progress">発見まで 0%</div>
+            </div>
+
+            <div class="bearing-section">
+              <div class="bearing-label-wrap">
+                <span class="bearing-label">DIRECTION</span>
+                <span class="bearing-tolerance" id="bearing-tolerance">誤差目安: —</span>
+              </div>
+              <div class="bearing-body">
+                <div class="compass-ring">
+                  <span class="compass-n">N</span>
+                  <span class="compass-e">E</span>
+                  <span class="compass-s">S</span>
+                  <span class="compass-w">W</span>
+                  <div class="compass-arrow" id="bearing-arrow">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="12 2 15 20 12 17 9 20 12 2"/>
+                    </svg>
+                  </div>
+                </div>
+                <div class="bearing-text">
+                  <span class="bearing-direction" id="bearing-direction">—</span>
+                  <span class="bearing-hint">目標はこの方角</span>
+                </div>
+              </div>
+            </div>
+
             <div class="serial-controls">
               <div class="serial-status" id="serial-status">未接続</div>
-              <button class="serial-btn serial-btn-connect" id="connect-serial-btn">
+              <button class="serial-btn serial-btn-connect" type="button" id="connect-serial-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                   <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
                   <path d="M12 6v6l4 2"/>
                 </svg>
-                みちびき接続
+                QZ1 を接続
               </button>
-              <button class="serial-btn serial-btn-disconnect" id="disconnect-serial-btn" style="display:none;">
+              <button class="serial-btn serial-btn-disconnect" type="button" id="disconnect-serial-btn" style="display:none;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                   <line x1="18" y1="6" x2="6" y2="18"/>
                   <line x1="6" y1="6" x2="18" y2="18"/>
@@ -419,6 +467,10 @@
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
               </button>
+            </div>
+
+            <div class="rescue-hint hidden" id="rescue-hint">
+              💡 ヒント: 目の前をよく見てみよう。標識や看板が手がかりかも。
             </div>
 
             <div class="clue-distance-section">
@@ -536,19 +588,44 @@
     </div><!-- /record-screen -->
 
     <!-- ===== DISCOVERY MODAL ===== -->
-    <div id="discovery-overlay" class="hidden" style="position:fixed;inset:0;background:rgba(28,46,58,0.7);z-index:200;display:flex;align-items:center;justify-content:center;">
-      <div style="background:#fff;border-radius:24px;padding:40px 36px;max-width:440px;width:90%;text-align:center;position:relative;">
-        <div style="font-size:52px;margin-bottom:16px;animation:bounceAnim 0.6s ease-in-out;" id="discovery-icon">🎉</div>
-        <div style="font-family:'Outfit',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.14em;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">DISCOVERED</div>
-        <h2 style="font-size:24px;font-weight:900;color:var(--text-primary);margin-bottom:6px;" id="discovery-title">発見！</h2>
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;line-height:1.6;" id="discovery-message">特別な一点を見つけました。</p>
-        <div style="background:var(--bg);border-radius:14px;padding:18px;margin-bottom:24px;text-align:left;">
-          <div style="font-family:'Outfit',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.12em;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">REWARD</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text-primary);" id="reward-badge">絶景発見者</div>
+    <div id="discovery-overlay" class="hidden discovery-overlay">
+      <div class="discovery-card">
+        <div class="discovery-icon-wrap">
+          <div class="discovery-icon" id="discovery-icon">🎉</div>
         </div>
-        <div style="display:flex;gap:10px;flex-direction:column;">
-          <button id="add-collection-btn" class="btn-explore" style="width:100%;justify-content:center;">コレクションに追加</button>
-          <button id="back-home-discovery-btn" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;background:transparent;font-size:13px;font-weight:600;font-family:'Noto Sans JP',sans-serif;cursor:pointer;color:var(--text-secondary);">ホームへ戻る</button>
+        <div class="discovery-kicker">DISCOVERED</div>
+        <h2 class="discovery-title" id="discovery-title">発見！</h2>
+        <p class="discovery-message" id="discovery-message">特別な一点を見つけました。</p>
+
+        <div class="discovery-content-block">
+          <div class="discovery-content-kicker">ABOUT THIS SPOT</div>
+          <p class="discovery-summary" id="discovery-summary">この場所についての説明はフィールドワーク後に記入されます。</p>
+
+          <div class="discovery-trivia-wrap" id="discovery-trivia-wrap">
+            <div class="discovery-trivia-label">ちいさな豆知識</div>
+            <div class="discovery-trivia" id="discovery-trivia"></div>
+          </div>
+
+          <div class="discovery-story-wrap">
+            <span class="discovery-story-kicker">💬 地元の人の話</span>
+            <p class="discovery-story" id="discovery-story"></p>
+          </div>
+
+          <div class="discovery-photo-wrap">
+            <span class="discovery-photo-kicker">📷 撮影のコツ</span>
+            <p class="discovery-phototip" id="discovery-phototip"></p>
+          </div>
+        </div>
+
+        <div class="discovery-reward-block">
+          <div class="discovery-reward-kicker">REWARD</div>
+          <div class="discovery-reward-name" id="reward-badge">絶景発見者</div>
+        </div>
+
+        <div class="discovery-actions">
+          <button id="next-mission-btn" class="btn-explore discovery-primary" type="button">次のミッションへ</button>
+          <button id="add-collection-btn" class="discovery-secondary" type="button">コレクションで確認</button>
+          <button id="back-home-discovery-btn" class="discovery-tertiary" type="button">ホームへ戻る</button>
         </div>
       </div>
     </div>
@@ -565,6 +642,8 @@
 }
 </style>
 
+<script src="config.js"></script>
+<script src="location.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
