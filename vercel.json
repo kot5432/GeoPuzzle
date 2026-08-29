@@ -1,7 +1,16 @@
 {
   "buildCommand": null,
   "outputDirectory": ".",
+  "functions": {
+    "api/env.js": {
+      "includeFiles": ""
+    }
+  },
   "rewrites": [
+    {
+      "source": "/env.js",
+      "destination": "/api/env"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
