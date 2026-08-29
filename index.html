@@ -108,8 +108,8 @@
           <!-- Right: Map Card -->
           <div class="hero-card-map">
             <div class="map-area" id="home-map-container">
-              <!-- Google Maps コンポーネントがここにマウントされる -->
-              <!-- 環境変数が未設定の場合は代替プレースホルダが表示される -->
+              <!-- MapLibre コンポーネントがここにマウントされる -->
+              <!-- PMTiles が未配置の場合は案内が表示される -->
             </div>
             <div class="map-compass">🧭</div>
             <div class="map-landmark-card">
@@ -295,7 +295,7 @@
 
           <!-- Map Panel -->
           <div class="map-panel" id="explore-map-container">
-            <!-- Google Maps コンポーネントがここにマウントされる -->
+            <!-- MapLibre コンポーネントがここにマウントされる -->
             <!-- 現在地マーカー / 目標地点 / 誤差円 / 発見ゾーンは全て GeoMap コンポーネントが管理 -->
             <div class="map-north-label">北 ↑</div>
             <button class="map-update-btn" id="update-location-btn">
@@ -557,9 +557,10 @@
 </style>
 
 <script src="config.js"></script>
-<script src="lib/env-loader.js"></script>
-<script src="components/geo-map.js"></script>
+<script type="module" src="components/geo-map.js"></script>
 <script src="location.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
+
+

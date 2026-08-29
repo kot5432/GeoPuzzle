@@ -15,6 +15,11 @@ let currentDistance = null;
 let simulatedDistance = 86;
 let approachStuckSince = null;
 
+const mapState = {
+  home: null,
+  explore: null,
+};
+
 const MISSIONS = [
   {
     id: 'mission1',
@@ -112,6 +117,96 @@ const SCREEN_IDS = {
 };
 const NAV_IDS = ['nav-home', 'nav-explore', 'nav-record'];
 
+
+// ===================================
+// MapLibre / PMTiles Map
+// ===================================
+function getMissionMapPosition(mission) {
+  if (!mission || !mission.targetLocation) return { lat: 36.7778, lng: 137.1235 };
+  return {
+    lat: mission.targetLocation.latitude,
+    lng: mission.targetLocation.longitude,
+  };
+}
+
+function getInitialMapCenter() {
+  return getMissionMapPosition(MISSIONS[0]);
+}
+
+function getCurrentPositionForMap() {
+  const pos = LocationService.getPosition();
+  if (typeof pos.latitude !== 'number' || typeof pos.longitude !== 'number') return null;
+  return {
+    lat: pos.latitude,
+    lng: pos.longitude,
+    accuracy: typeof pos.accuracy === 'number' ? pos.accuracy : undefined,
+    provider: LocationService.getProvider(),
+    title: '現在地',
+  };
+}
+
+function mapTargetFromMission(mission) {
+  if (!mission) return null;
+  return {
+    id: mission.id,
+    position: getMissionMapPosition(mission),
+    radius: getActiveTolerance(mission) || mission.targetLocation.gpsTolerance || 5,
+    title: mission.title,
+    color: '#E05C35',
+  };
+}
+
+function ensureGeoMapsInitialized() {
+  if (!window.GeoMap) return;
+
+  if (currentScreen === 'home' && !mapState.home) {
+    window.GeoMap.mount('#home-map-container', {
+      center: getInitialMapCenter(),
+      zoom: 15,
+      pmtilesUrl: '/maps/map.pmtiles',
+    }).then((map) => {
+      mapState.home = map;
+      map.setTargets(MISSIONS.map(mapTargetFromMission).filter(Boolean));
+      updateUserMapPosition();
+    }).catch((error) => console.warn('Home map is not available yet.', error));
+  }
+
+  if (currentScreen === 'explore' && !mapState.explore) {
+    window.GeoMap.mount('#explore-map-container', {
+      center: getMissionMapPosition(getCurrentMission() || MISSIONS[0]),
+      zoom: 17,
+      pmtilesUrl: '/maps/map.pmtiles',
+    }).then((map) => {
+      mapState.explore = map;
+      updateExploreMapOverlays();
+      updateUserMapPosition();
+    }).catch((error) => console.warn('Explore map is not available yet.', error));
+  }
+
+  window.setTimeout(resizeVisibleMap, 0);
+}
+
+function resizeVisibleMap() {
+  const map = currentScreen === 'explore' ? mapState.explore : mapState.home;
+  const nativeMap = map?.getNativeMap?.();
+  if (nativeMap?.resize) nativeMap.resize();
+}
+
+function updateUserMapPosition() {
+  const pos = getCurrentPositionForMap();
+  if (!pos) return;
+  if (mapState.home) mapState.home.setUserPosition(pos);
+  if (mapState.explore) mapState.explore.setUserPosition(pos);
+}
+
+function updateExploreMapOverlays() {
+  if (!mapState.explore) return;
+  const mission = getCurrentMission();
+  const target = mapTargetFromMission(mission);
+  mapState.explore.setTargets(target ? [target] : []);
+  if (target) mapState.explore.panTo(target.position);
+}
+
 // ===================================
 // Screen Management
 // ===================================
@@ -131,6 +226,7 @@ function showScreen(name) {
   });
 
   currentScreen = name;
+  ensureGeoMapsInitialized();
 
   if (name === 'record') renderDiscoveryList();
   if (name === 'home') renderMissionSelect();
@@ -264,6 +360,7 @@ function getPrevMissionId(beforeId) {
 
 function handlePositionUpdate() {
   refreshExploreLocationUI();
+  updateUserMapPosition();
 }
 
 function handleDwellComplete() {
@@ -850,6 +947,7 @@ function updateExploreScreen() {
   document.getElementById('explore-breadcrumb').textContent = `MISSION ${idx} / ${MISSIONS.length}`;
 
   updateHints();
+  updateExploreMapOverlays();
   refreshExploreLocationUI();
 }
 
@@ -886,3 +984,4 @@ function showNextHint() {
   currentHintLevel++;
   updateHints();
 }
+
