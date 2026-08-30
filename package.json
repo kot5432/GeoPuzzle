@@ -4,6 +4,9 @@
   "description": "GeoPuzzle - 高精度位置情報を使った観光スポット探索アプリ",
   "license": "MIT",
   "private": true,
+  "engines": {
+    "node": ">=18.x"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "npx serve ."
