@@ -3,5 +3,12 @@
   "version": "1.0.0",
   "description": "GeoPuzzle - 高精度位置情報を使った観光スポット探索アプリ",
   "license": "MIT",
-  "private": true
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "npx serve ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
 }
