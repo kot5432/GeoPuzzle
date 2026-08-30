@@ -52,6 +52,12 @@ function copyDirectoryRecursive(source, destination) {
   const entries = fs.readdirSync(source, { withFileTypes: true });
 
   for (const entry of entries) {
+    // Skip node_modules and other common directories to exclude
+    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.cache') {
+      console.log(`Skipping ${entry.name}/`);
+      continue;
+    }
+
     const sourcePath = path.join(source, entry.name);
     const destPath = path.join(destination, entry.name);
 
