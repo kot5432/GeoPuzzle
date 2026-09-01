@@ -201,13 +201,38 @@ function ensureMapsMounted(screenName) {
   });
 }
 
-async function syncPositionToMaps() {
-  if (!currentPosition?.latitude || !currentPosition?.longitude) return;
+function getUserPositionConnectionState() {
+  const hasPosition = !!(currentPosition && currentPosition.latitude !== null && currentPosition.longitude !== null);
+  const hasValidSignal = isConnected && qzssData.signalQuality && qzssData.signalQuality !== 'none';
+  const shouldShowUserPosition = !!(isConnected && hasPosition && hasValidSignal);
 
+  return {
+    connected: isConnected,
+    hasPosition,
+    hasValidSignal,
+    shouldShowUserPosition,
+    statusText: isConnected
+      ? (hasValidSignal ? '接続中（位置情報更新中）' : '未接続（受信なし）')
+      : '未接続（位置情報なし）',
+  };
+}
+
+async function syncPositionToMaps() {
   const [hMap, eMap] = await Promise.all([
     homeMap || Promise.resolve(null),
     exploreMap || Promise.resolve(null),
   ]);
+
+  const state = getUserPositionConnectionState();
+  if (!state.shouldShowUserPosition || !currentPosition?.latitude || !currentPosition?.longitude) {
+    try {
+      if (hMap && hMap.removeUserPosition) hMap.removeUserPosition();
+      if (eMap && eMap.removeUserPosition) eMap.removeUserPosition();
+    } catch (e) {
+      console.warn('removeUserPosition error:', e);
+    }
+    return;
+  }
 
   let accuracy;
   if (useQZSS && qzssData.accuracy?.hdop) {
@@ -942,13 +967,18 @@ function updateDebugUI() {
 
   const qzssStatus = document.getElementById('qzss-status');
   if (qzssStatus) {
-    qzssStatus.textContent = isConnected ? '接続中' : '未接続';
-    qzssStatus.style.color = isConnected ? '#4CAF50' : '#999';
+    const state = getUserPositionConnectionState();
+    qzssStatus.textContent = state.statusText;
+    qzssStatus.style.color = state.shouldShowUserPosition ? '#4CAF50' : '#F44336';
   }
 
   const currentPositionDebug = document.getElementById('debug-position');
-  if (currentPositionDebug && currentPosition.latitude && currentPosition.longitude) {
-    currentPositionDebug.textContent = `${currentPosition.latitude.toFixed(6)}, ${currentPosition.longitude.toFixed(6)}`;
+  if (currentPositionDebug) {
+    if (currentPosition.latitude && currentPosition.longitude) {
+      currentPositionDebug.textContent = `${currentPosition.latitude.toFixed(6)}, ${currentPosition.longitude.toFixed(6)}`;
+    } else {
+      currentPositionDebug.textContent = '位置情報なし';
+    }
   }
 }
 
@@ -1003,7 +1033,10 @@ async function disconnectSerialPort() {
 
     isConnected = false;
     useQZSS = false;
+    currentPosition = { latitude: null, longitude: null };
+    qzssData.position = { latitude: null, longitude: null, altitude: null };
     updateSerialConnectionUI();
+    syncPositionToMaps();
 
     // Reset signal quality
     qzssData.signalQuality = 'none';
@@ -1404,10 +1437,12 @@ function updateSerialConnectionUI() {
   const statusEl = document.getElementById('serial-status');
   const connectBtn = document.getElementById('connect-serial-btn');
   const disconnectBtn = document.getElementById('disconnect-serial-btn');
+  const connectionState = getUserPositionConnectionState();
 
   if (statusEl) {
-    statusEl.textContent = isConnected ? '接続中' : '未接続';
-    statusEl.classList.toggle('connected', isConnected);
+    statusEl.textContent = connectionState.statusText;
+    statusEl.classList.toggle('connected', connectionState.shouldShowUserPosition);
+    statusEl.classList.toggle('disconnected', !connectionState.shouldShowUserPosition);
   }
 
   if (connectBtn) {
@@ -1422,8 +1457,8 @@ function updateSerialConnectionUI() {
   if (debugConfig.debugMode) {
     const qzssStatus = document.getElementById('qzss-status');
     if (qzssStatus) {
-      qzssStatus.textContent = isConnected ? '接続中' : '未接続';
-      qzssStatus.style.color = isConnected ? '#4CAF50' : '#999';
+      qzssStatus.textContent = connectionState.statusText;
+      qzssStatus.style.color = connectionState.shouldShowUserPosition ? '#4CAF50' : '#F44336';
     }
   }
 }
@@ -1471,8 +1506,8 @@ function updateQZSSUI() {
   // Update reception status
   const receptionEl = document.getElementById('reception-status');
   if (receptionEl) {
-    if (!isPositionValid || qzssData.signalQuality === 'none') {
-      receptionEl.textContent = '信号なし (屋内?)';
+    if (!isConnected || !isPositionValid || qzssData.signalQuality === 'none') {
+      receptionEl.textContent = '未接続: 位置情報なし';
       receptionEl.style.color = '#F44336';
     } else if (qzssData.fixQuality === 1) {
       receptionEl.textContent = 'GPSのみ';

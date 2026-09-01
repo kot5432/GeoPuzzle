@@ -77,8 +77,21 @@
       } else source.setData(data);
     }
 
+    function removeUserPosition() {
+      pendingUser = null;
+      if (state.userMarker) {
+        state.userMarker.remove();
+        state.userMarker = null;
+      }
+      if (map.getLayer('geo-user-accuracy')) map.removeLayer('geo-user-accuracy');
+      if (map.getSource('geo-user-accuracy')) map.removeSource('geo-user-accuracy');
+    }
+
     function setUserPosition(pos) {
-      if (!pos || typeof pos.lat !== 'number' || typeof pos.lng !== 'number') return;
+      if (!pos || typeof pos.lat !== 'number' || typeof pos.lng !== 'number') {
+        removeUserPosition();
+        return;
+      }
       pendingUser = pos;
       var color = pos.provider === 'qzss' ? '#E05C35' : (pos.provider === 'simulated' ? '#607D8B' : '#2196F3');
       var point = [pos.lng, pos.lat];
@@ -136,11 +149,12 @@
 
     var instance = {
       setUserPosition: setUserPosition,
+      removeUserPosition: removeUserPosition,
       setTargets: setTargets,
       setCenterLocked: function (locked) { state.centerLocked = !!locked; },
       panTo: function (pos) { if (pos && typeof pos.lat === 'number') map.easeTo({ center: [pos.lng, pos.lat] }); },
       getNativeMap: function () { return map; },
-      destroy: function () { Object.keys(state.targets).forEach(removeTarget); if (state.userMarker) state.userMarker.remove(); map.remove(); delete container._geoMap; },
+      destroy: function () { Object.keys(state.targets).forEach(removeTarget); removeUserPosition(); map.remove(); delete container._geoMap; },
     };
     container._geoMap = instance;
     var fallbackActivated = false;

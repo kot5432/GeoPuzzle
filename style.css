@@ -953,9 +953,21 @@ body {
   background: #999;
 }
 
+.serial-status.connected {
+  color: #8fe1a4;
+}
+
 .serial-status.connected::before {
   background: #4CAF50;
   animation: pulseDot 1.5s ease-in-out infinite;
+}
+
+.serial-status.disconnected {
+  color: #ff9d9d;
+}
+
+.serial-status.disconnected::before {
+  background: #F44336;
 }
 
 .serial-btn {
