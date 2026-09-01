@@ -38,6 +38,14 @@ try {
     }
   }
 
+  // Copy local PMTiles and style assets when provided.
+  const publicPath = path.join(__dirname, '..', 'public');
+  const distPublicPath = path.join(__dirname, '..', 'dist');
+  if (fs.existsSync(publicPath)) {
+    copyDirectoryRecursive(publicPath, distPublicPath);
+    console.log('Copied public/ assets to dist/');
+  }
+
   console.log('Build complete! Output in dist/');
 } catch (error) {
   console.error('Build failed:', error);

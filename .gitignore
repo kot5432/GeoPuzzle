@@ -45,6 +45,9 @@ testem.log
 !env.js.tmpl
 !.env.example
 
+# Large local PMTiles archive
+/public/maps/map.pmtiles
+
 # System Files
 .DS_Store
 Thumbs.db

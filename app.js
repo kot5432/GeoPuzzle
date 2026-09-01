@@ -293,7 +293,7 @@ function updateDirectionLineOnMap() { /* noop: 方向コンパスUIで代用 */ 
 // Init
 // ===================================
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Google Maps (GeoMap コンポーネント)
+  // Initialize MapLibre + PMTiles (GeoMap コンポーネント)
   ensureMapsMounted();
   // Check if already "logged in" (demo: always show login first)
   const loginScreen = document.getElementById('login-screen');
