@@ -137,10 +137,8 @@ const MISSIONS = [
 // GeoMap Bridge Functions
 // ===================================
 
-function ensureMapsMounted() {
-  if (homeMap && exploreMap) {
-    return Promise.all([homeMap, exploreMap]).then(() => {});
-  }
+function ensureMapsMounted(screenName) {
+  const mountExplore = screenName === 'explore';
 
   const center = {
     lat: MAP_CONFIG.center.lat,
@@ -155,7 +153,7 @@ function ensureMapsMounted() {
         })
       : Promise.resolve(null);
   }
-  if (!exploreMap) {
+  if (mountExplore && !exploreMap) {
     exploreMap = (typeof GeoMap !== 'undefined' && GeoMap.mount)
       ? GeoMap.mount('#explore-map-container', { center, zoom: 17 }).catch(err => {
           console.warn('[exploreMap] mount failed:', err?.message);
@@ -164,6 +162,11 @@ function ensureMapsMounted() {
       : Promise.resolve(null);
   }
   return Promise.all([homeMap, exploreMap]).then(() => {
+    const visibleMap = screenName === 'explore' ? exploreMap : homeMap;
+    if (visibleMap) {
+      const nativeMap = visibleMap.getNativeMap?.();
+      if (nativeMap) nativeMap.resize();
+    }
     syncTargetsToHomeMap();
     if (currentMissionId) syncTargetsToExploreMap();
     syncPositionToMaps();
@@ -272,7 +275,7 @@ function showScreen(name) {
     ensureMapsMounted();
   }
   if (name === 'explore') {
-    ensureMapsMounted();
+    ensureMapsMounted('explore');
   }
 }
 
