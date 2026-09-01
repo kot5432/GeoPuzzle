@@ -26,6 +26,12 @@ let isConnected = false;
 let currentPosition = { latitude: null, longitude: null };
 let useQZSS = false;  // みちびきを使用するかどうか
 
+// Leaflet Map
+let map = null;
+let playerMarker = null;
+let targetMarker = null;
+let directionLine = null;
+
 // Demo spot data
 const SPOTS = [
   {
@@ -53,18 +59,13 @@ const qzssData = {
   timestamp: null
 };
 
-// Map Configuration for GeoPuzzle
+// Map Configuration for GeoPuzzle (Leaflet)
 const MAP_CONFIG = {
-  bounds: {
-    north: 36.785,   // 北緯 (海王丸パーク周辺)
-    south: 36.775,   // 南緯
-    east: 137.115,   // 東経
-    west: 137.100    // 西経
+  center: {
+    lat: 36.7813,  // 海王丸パーク中心
+    lng: 137.1076
   },
-  size: {
-    width: 640,
-    height: 520
-  }
+  zoom: 16
 };
 
 // Mission data structure
@@ -171,9 +172,91 @@ function showScreen(name) {
 }
 
 // ===================================
+// Leaflet Map Functions
+// ===================================
+function initLeafletMap() {
+  // Initialize Leaflet map centered on Kaihomaru Park
+  map = L.map('leaflet-map').setView([36.7813, 137.1076], 16);
+
+  // Add OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Add target marker (initially hidden)
+  targetMarker = L.marker([36.7813, 137.1076], {
+    icon: L.divIcon({
+      className: 'target-marker',
+      html: '<div class="target-marker-icon"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    })
+  }).addTo(map);
+
+  // Add player marker (initially hidden)
+  playerMarker = L.marker([36.7800, 137.1000], {
+    icon: L.divIcon({
+      className: 'player-marker',
+      html: '<div class="player-marker-icon"></div>',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    })
+  }).addTo(map);
+
+  console.log('Leaflet map initialized');
+}
+
+function updateTargetMarkerOnMap(lat, lon) {
+  if (!map || !targetMarker) return;
+
+  targetMarker.setLatLng([lat, lon]);
+  console.log('Target marker updated:', { lat, lon });
+}
+
+function updatePlayerMarkerOnMap(lat, lon) {
+  if (!map || !playerMarker) return;
+
+  playerMarker.setLatLng([lat, lon]);
+
+  // Update direction line
+  updateDirectionLineOnMap(lat, lon);
+
+  console.log('QZSS位置更新:', { lat, lon });
+}
+
+function updateDirectionLineOnMap(playerLat, playerLon) {
+  if (!map || !currentMissionId) return;
+
+  const mission = MISSIONS.find(m => m.id === currentMissionId);
+  if (!mission) return;
+
+  const targetLat = mission.targetLocation.latitude;
+  const targetLon = mission.targetLocation.longitude;
+
+  // Remove existing direction line
+  if (directionLine) {
+    map.removeLayer(directionLine);
+  }
+
+  // Add new direction line
+  directionLine = L.polyline([
+    [playerLat, playerLon],
+    [targetLat, targetLon]
+  ], {
+    color: '#1C2E3A',
+    weight: 2,
+    opacity: 0.6,
+    dashArray: '6, 5'
+  }).addTo(map);
+}
+
+// ===================================
 // Init
 // ===================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize Leaflet map
+  initLeafletMap();
   // Check if already "logged in" (demo: always show login first)
   const loginScreen = document.getElementById('login-screen');
   const mainApp = document.getElementById('main-app');
@@ -624,21 +707,10 @@ function updateExploreScreen() {
 }
 
 function updateTargetMarkerOnMap(lat, lon) {
-  const coords = geoToSvgCoords(lat, lon);
+  if (!map || !targetMarker) return;
 
-  // SVG上のターゲットマーカーを更新
-  const targetMarkers = document.querySelectorAll('circle[fill="#E05C35"]');
-  targetMarkers.forEach(marker => {
-    const currentCx = marker.getAttribute('cx');
-    const currentCy = marker.getAttribute('cy');
-    // Update only the main target marker (not the animation one)
-    if (currentCx === '324' && currentCy === '192') {
-      marker.setAttribute('cx', coords.x);
-      marker.setAttribute('cy', coords.y);
-    }
-  });
-
-  console.log('ターゲットマーカー更新:', { lat, lon }, 'SVG座標:', coords);
+  targetMarker.setLatLng([lat, lon]);
+  console.log('Target marker updated:', { lat, lon });
 }
 
 function updateHints() {
@@ -1022,82 +1094,6 @@ function updateSerialConnectionUI() {
       qzssStatus.textContent = isConnected ? '接続中' : '未接続';
       qzssStatus.style.color = isConnected ? '#4CAF50' : '#999';
     }
-  }
-}
-
-// ===================================
-// Map Coordinate Conversion Functions
-// ===================================
-function geoToSvgCoords(lat, lon) {
-  const x = ((lon - MAP_CONFIG.bounds.west) / (MAP_CONFIG.bounds.east - MAP_CONFIG.bounds.west)) * MAP_CONFIG.size.width;
-  const y = ((MAP_CONFIG.bounds.north - lat) / (MAP_CONFIG.bounds.north - MAP_CONFIG.bounds.south)) * MAP_CONFIG.size.height;
-  return { x, y };
-}
-
-function svgToGeoCoords(x, y) {
-  const lon = MAP_CONFIG.bounds.west + (x / MAP_CONFIG.size.width) * (MAP_CONFIG.bounds.east - MAP_CONFIG.bounds.west);
-  const lat = MAP_CONFIG.bounds.north - (y / MAP_CONFIG.size.height) * (MAP_CONFIG.bounds.north - MAP_CONFIG.bounds.south);
-  return { lat, lon };
-}
-
-// ===================================
-// Map Update Functions
-// ===================================
-function updatePlayerMarkerOnMap(lat, lon) {
-  const coords = geoToSvgCoords(lat, lon);
-
-  // SVG上のプレイヤーマーカーを更新
-  const playerMarker = document.getElementById('player-marker');
-  const playerInner = document.getElementById('player-inner');
-  const playerDot = document.getElementById('player-dot');
-
-  if (playerMarker) {
-    playerMarker.setAttribute('cx', coords.x);
-    playerMarker.setAttribute('cy', coords.y);
-  }
-  if (playerInner) {
-    playerInner.setAttribute('cx', coords.x);
-    playerInner.setAttribute('cy', coords.y);
-  }
-  if (playerDot) {
-    playerDot.setAttribute('cx', coords.x);
-    playerDot.setAttribute('cy', coords.y);
-  }
-
-  // 方向線を更新
-  updateDirectionLine(coords);
-
-  console.log('QZSS位置更新:', { lat, lon }, 'SVG座標:', coords);
-}
-
-function updateDirectionLine(playerCoords) {
-  const mission = MISSIONS.find(m => m.id === currentMissionId);
-  if (!mission) return;
-
-  const targetCoords = geoToSvgCoords(
-    mission.targetLocation.latitude,
-    mission.targetLocation.longitude
-  );
-
-  // 方向線を探す（既存の線を更新）
-  const mapSvg = document.querySelector('.map-panel-svg');
-  if (mapSvg) {
-    // 既存の方向線を探すか、新規作成
-    let directionLine = mapSvg.querySelector('.direction-line');
-    if (!directionLine) {
-      directionLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      directionLine.setAttribute('class', 'direction-line');
-      directionLine.setAttribute('stroke', '#1C2E3A');
-      directionLine.setAttribute('stroke-width', '1.5');
-      directionLine.setAttribute('stroke-dasharray', '6,5');
-      directionLine.setAttribute('opacity', '0.4');
-      mapSvg.appendChild(directionLine);
-    }
-
-    directionLine.setAttribute('x1', playerCoords.x);
-    directionLine.setAttribute('y1', playerCoords.y);
-    directionLine.setAttribute('x2', targetCoords.x);
-    directionLine.setAttribute('y2', targetCoords.y);
   }
 }
 

@@ -1035,6 +1035,54 @@ body {
   text-align: right;
 }
 
+/* Leaflet Map Styles */
+#leaflet-map {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+}
+
+.target-marker-icon {
+  width: 20px;
+  height: 20px;
+  background: #E05C35;
+  border-radius: 50%;
+  border: 3px solid rgba(224, 92, 53, 0.3);
+  animation: pulseTarget 2s ease-in-out infinite;
+}
+
+.player-marker-icon {
+  width: 24px;
+  height: 24px;
+  background: #1C2E3A;
+  border-radius: 50%;
+  border: 3px solid white;
+  position: relative;
+}
+
+.player-marker-icon::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: #4CAF50;
+  border-radius: 50%;
+}
+
+@keyframes pulseTarget {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.6;
+  }
+}
+
 .clue-badge {
   font-family: 'Outfit', sans-serif;
   font-size: 10px;
