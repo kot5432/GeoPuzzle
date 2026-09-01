@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const files = ['index.html', 'style.css', 'app.js'];
-const directories = ['lib'];
+const files = ['index.html', 'style.css', 'app.js', 'config.js', 'location.js', 'env.js'];
+const directories = ['lib', 'components'];
 
 console.log('Building GeoPuzzle...');
 

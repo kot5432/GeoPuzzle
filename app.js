@@ -26,11 +26,9 @@ let isConnected = false;
 let currentPosition = { latitude: null, longitude: null };
 let useQZSS = false;  // みちびきを使用するかどうか
 
-// Leaflet Map
-let map = null;
-let playerMarker = null;
-let targetMarker = null;
-let directionLine = null;
+// Google Maps (GeoMap コンポーネントの Promise を保持)
+let homeMap = null;
+let exploreMap = null;
 
 // Demo spot data
 const SPOTS = [
@@ -136,6 +134,107 @@ const MISSIONS = [
 ];
 
 // ===================================
+// GeoMap Bridge Functions
+// ===================================
+
+function ensureMapsMounted() {
+  if (homeMap && exploreMap) {
+    return Promise.all([homeMap, exploreMap]).then(() => {});
+  }
+
+  const center = {
+    lat: MAP_CONFIG.center.lat,
+    lng: MAP_CONFIG.center.lng,
+  };
+
+  if (!homeMap) {
+    homeMap = (typeof GeoMap !== 'undefined' && GeoMap.mount)
+      ? GeoMap.mount('#home-map-container', { center, zoom: 16 }).catch(err => {
+          console.warn('[homeMap] mount failed:', err?.message);
+          return null;
+        })
+      : Promise.resolve(null);
+  }
+  if (!exploreMap) {
+    exploreMap = (typeof GeoMap !== 'undefined' && GeoMap.mount)
+      ? GeoMap.mount('#explore-map-container', { center, zoom: 17 }).catch(err => {
+          console.warn('[exploreMap] mount failed:', err?.message);
+          return null;
+        })
+      : Promise.resolve(null);
+  }
+  return Promise.all([homeMap, exploreMap]).then(() => {
+    syncTargetsToHomeMap();
+    if (currentMissionId) syncTargetsToExploreMap();
+    syncPositionToMaps();
+  });
+}
+
+async function syncPositionToMaps() {
+  if (!currentPosition?.latitude || !currentPosition?.longitude) return;
+
+  const [hMap, eMap] = await Promise.all([
+    homeMap || Promise.resolve(null),
+    exploreMap || Promise.resolve(null),
+  ]);
+
+  let accuracy;
+  if (useQZSS && qzssData.accuracy?.hdop) {
+    accuracy = Math.max(0.5, Math.min(20.0, qzssData.accuracy.hdop * 1.2));
+  } else if (useQZSS) {
+    accuracy = 1.0;
+  } else {
+    accuracy = 10.0;
+  }
+  const provider = useQZSS ? 'qzss' : (debugConfig.debugMode ? 'simulated' : 'gps');
+  const payload = {
+    lat: currentPosition.latitude,
+    lng: currentPosition.longitude,
+    accuracy,
+    provider,
+  };
+  try {
+    if (hMap && hMap.setUserPosition) hMap.setUserPosition(payload);
+    if (eMap && eMap.setUserPosition) eMap.setUserPosition(payload);
+  } catch (e) {
+    console.warn('syncPositionToMaps error:', e);
+  }
+}
+
+async function syncTargetsToHomeMap() {
+  const [hMap] = await Promise.all([homeMap || Promise.resolve(null)]);
+  if (!hMap || !hMap.setTargets) return;
+  const palette = ['#E05C35', '#F4C542', '#7E57C2'];
+  hMap.setTargets(MISSIONS.map((m, i) => ({
+    id: m.id,
+    position: { lat: m.targetLocation.latitude, lng: m.targetLocation.longitude },
+    radius: m.targetLocation.tolerance || 0.5,
+    color: palette[i % palette.length],
+    title: m.title,
+    fillOpacity: 0.15,
+  })));
+}
+
+async function syncTargetsToExploreMap() {
+  const [eMap] = await Promise.all([exploreMap || Promise.resolve(null)]);
+  if (!eMap || !eMap.setTargets) return;
+  if (!currentMissionId) {
+    eMap.setTargets([]);
+    return;
+  }
+  const mission = MISSIONS.find(m => m.id === currentMissionId);
+  if (!mission) return;
+  eMap.setTargets([{
+    id: mission.id,
+    position: { lat: mission.targetLocation.latitude, lng: mission.targetLocation.longitude },
+    radius: mission.targetLocation.tolerance || 0.5,
+    color: '#E05C35',
+    title: mission.title,
+    fillOpacity: 0.2,
+  }]);
+}
+
+// ===================================
 // Screen Management
 // ===================================
 const NAV_IDS = ['nav-home', 'nav-explore', 'nav-record'];
@@ -168,95 +267,34 @@ function showScreen(name) {
 
   // Screen-specific actions
   if (name === 'record') renderDiscoveryList();
-  if (name === 'home') renderMissionSelect();
-}
-
-// ===================================
-// Leaflet Map Functions
-// ===================================
-function initLeafletMap() {
-  // Initialize Leaflet map centered on Kaihomaru Park
-  map = L.map('leaflet-map').setView([36.7813, 137.1076], 16);
-
-  // Add OpenStreetMap tiles
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-  }).addTo(map);
-
-  // Add target marker (initially hidden)
-  targetMarker = L.marker([36.7813, 137.1076], {
-    icon: L.divIcon({
-      className: 'target-marker',
-      html: '<div class="target-marker-icon"></div>',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
-    })
-  }).addTo(map);
-
-  // Add player marker (initially hidden)
-  playerMarker = L.marker([36.7800, 137.1000], {
-    icon: L.divIcon({
-      className: 'player-marker',
-      html: '<div class="player-marker-icon"></div>',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    })
-  }).addTo(map);
-
-  console.log('Leaflet map initialized');
-}
-
-function updateTargetMarkerOnMap(lat, lon) {
-  if (!map || !targetMarker) return;
-
-  targetMarker.setLatLng([lat, lon]);
-  console.log('Target marker updated:', { lat, lon });
-}
-
-function updatePlayerMarkerOnMap(lat, lon) {
-  if (!map || !playerMarker) return;
-
-  playerMarker.setLatLng([lat, lon]);
-
-  // Update direction line
-  updateDirectionLineOnMap(lat, lon);
-
-  console.log('QZSS位置更新:', { lat, lon });
-}
-
-function updateDirectionLineOnMap(playerLat, playerLon) {
-  if (!map || !currentMissionId) return;
-
-  const mission = MISSIONS.find(m => m.id === currentMissionId);
-  if (!mission) return;
-
-  const targetLat = mission.targetLocation.latitude;
-  const targetLon = mission.targetLocation.longitude;
-
-  // Remove existing direction line
-  if (directionLine) {
-    map.removeLayer(directionLine);
+  if (name === 'home') {
+    renderMissionSelect();
+    ensureMapsMounted();
   }
-
-  // Add new direction line
-  directionLine = L.polyline([
-    [playerLat, playerLon],
-    [targetLat, targetLon]
-  ], {
-    color: '#1C2E3A',
-    weight: 2,
-    opacity: 0.6,
-    dashArray: '6, 5'
-  }).addTo(map);
+  if (name === 'explore') {
+    ensureMapsMounted();
+  }
 }
+
+// ===================================
+// Legacy Map Wrappers (互換性のため残す)
+// ===================================
+function updateTargetMarkerOnMap(lat, lon) {
+  if (currentMissionId) syncTargetsToExploreMap();
+}
+function updatePlayerMarkerOnMap(lat, lon) {
+  currentPosition.latitude = lat;
+  currentPosition.longitude = lon;
+  syncPositionToMaps();
+}
+function updateDirectionLineOnMap() { /* noop: 方向コンパスUIで代用 */ }
 
 // ===================================
 // Init
 // ===================================
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Leaflet map
-  initLeafletMap();
+  // Initialize Google Maps (GeoMap コンポーネント)
+  ensureMapsMounted();
   // Check if already "logged in" (demo: always show login first)
   const loginScreen = document.getElementById('login-screen');
   const mainApp = document.getElementById('main-app');
@@ -438,7 +476,7 @@ function simulateLocationUpdate() {
     return;
   }
 
-  // Demo mode simulation
+  // Demo mode simulation: 目標地点周辺にランダムに移動し、地図に反映
   btn.textContent = '更新中...';
   btn.disabled = true;
 
@@ -447,6 +485,21 @@ function simulateLocationUpdate() {
     currentDistance = Math.max(15, currentDistance - Math.floor(Math.random() * 20 + 5));
     const distEl = document.getElementById('explore-distance');
     if (distEl) distEl.textContent = currentDistance;
+
+    // デモ用に currentPosition を目標地点周辺（±0.0003度 ≈ 33m）に移動
+    const mission = MISSIONS.find(m => m.id === currentMissionId);
+    if (mission?.targetLocation?.latitude) {
+      const lat0 = mission.targetLocation.latitude;
+      const lng0 = mission.targetLocation.longitude;
+      const jitterLat = (Math.random() - 0.5) * 0.0006;
+      const jitterLng = (Math.random() - 0.5) * 0.0006;
+      currentPosition.latitude = lat0 + jitterLat;
+      currentPosition.longitude = lng0 + jitterLng;
+    } else if (!currentPosition.latitude) {
+      currentPosition.latitude = MAP_CONFIG.center.lat;
+      currentPosition.longitude = MAP_CONFIG.center.lng;
+    }
+    syncPositionToMaps();
 
     btn.innerHTML = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
@@ -675,7 +728,9 @@ function startMission(missionId) {
   currentMissionId = missionId;
   currentHintLevel = 1;
   showScreen('explore');
-  updateExploreScreen();
+  ensureMapsMounted().then(() => {
+    updateExploreScreen();
+  });
 }
 
 function updateExploreScreen() {
@@ -704,13 +759,6 @@ function updateExploreScreen() {
 
   // Update hints
   updateHints();
-}
-
-function updateTargetMarkerOnMap(lat, lon) {
-  if (!map || !targetMarker) return;
-
-  targetMarker.setLatLng([lat, lon]);
-  console.log('Target marker updated:', { lat, lon });
 }
 
 function updateHints() {
