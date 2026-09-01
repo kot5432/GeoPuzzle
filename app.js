@@ -36,6 +36,18 @@ let useQZSS = false;  // みちびきを使用するかどうか
 let homeMap = null;
 let exploreMap = null;
 
+// Navigation mode based on distance (3-stage approach)
+const NAV_MODES = {
+  AREA_HINT: 'area_hint',      // ホーム: 探索エリアのみ
+  DIRECTION: 'direction',      // 100m〜: 方向＋おおよその距離
+  PRECISE: 'precise',          // 30m〜: 方向＋正確な距離
+  EXPLORATION: 'exploration',  // 10m〜: 距離中心＋「周囲を探そう」
+  FINAL: 'final',              // 3m〜: ナビ情報を弱める
+  QZSS: 'qzss'                // 1m以内: QZ1で一点判定
+};
+
+let currentNavMode = NAV_MODES.AREA_HINT;
+
 // Demo spot data
 const SPOTS = [
   {
@@ -1170,16 +1182,120 @@ function updateDistanceFromTarget() {
     target.longitude
   );
 
-  // Update distance display
-  const distEl = document.getElementById('explore-distance');
-  if (distEl) {
-    distEl.textContent = Math.round(distance);
-  }
+  // Determine navigation mode based on distance
+  currentNavMode = determineNavMode(distance);
+
+  // Update UI based on navigation mode
+  updateNavigationUI(distance, currentNavMode);
 
   // Update debug UI
   if (debugConfig.debugMode) {
     updateDebugUI();
   }
+}
+
+function determineNavMode(distance) {
+  if (distance > 100) return NAV_MODES.DIRECTION;
+  if (distance > 30) return NAV_MODES.PRECISE;
+  if (distance > 10) return NAV_MODES.EXPLORATION;
+  if (distance > 3) return NAV_MODES.FINAL;
+  return NAV_MODES.QZSS;
+}
+
+function updateNavigationUI(distance, mode) {
+  const distEl = document.getElementById('explore-distance');
+  const directionEl = document.getElementById('explore-direction');
+  const guidanceEl = document.getElementById('explore-guidance');
+  const radarOverlay = document.getElementById('radar-overlay');
+  const radarTarget = document.getElementById('radar-target');
+  const radarDistance = document.getElementById('radar-distance');
+
+  if (!distEl) return;
+
+  // Update distance display
+  distEl.textContent = Math.round(distance);
+
+  // Update UI based on mode
+  switch (mode) {
+    case NAV_MODES.DIRECTION:
+      if (directionEl) directionEl.textContent = '方向を確認';
+      if (guidanceEl) guidanceEl.textContent = '目標方向へ進もう';
+      // Show radar
+      if (radarOverlay) radarOverlay.style.display = 'block';
+      updateRadar(distance);
+      break;
+    case NAV_MODES.PRECISE:
+      if (directionEl) directionEl.textContent = getDirectionText();
+      if (guidanceEl) guidanceEl.textContent = '正確な距離で進もう';
+      // Show radar with precise direction
+      if (radarOverlay) radarOverlay.style.display = 'block';
+      updateRadar(distance);
+      break;
+    case NAV_MODES.EXPLORATION:
+      if (directionEl) directionEl.textContent = '近くにあります';
+      if (guidanceEl) guidanceEl.textContent = 'この周辺を探してみよう';
+      // Hide radar, focus on exploration
+      if (radarOverlay) radarOverlay.style.display = 'none';
+      break;
+    case NAV_MODES.FINAL:
+      if (directionEl) directionEl.textContent = '周囲を見渡そう';
+      if (guidanceEl) guidanceEl.textContent = '最後の数mを自分で探そう';
+      // Hide radar for final exploration
+      if (radarOverlay) radarOverlay.style.display = 'none';
+      break;
+    case NAV_MODES.QZSS:
+      if (directionEl) directionEl.textContent = 'QZSS判定中';
+      if (guidanceEl) guidanceEl.textContent = 'この場所を探してみよう';
+      // Hide radar for QZSS precision
+      if (radarOverlay) radarOverlay.style.display = 'none';
+      break;
+  }
+}
+
+function updateRadar(distance) {
+  const radarTarget = document.getElementById('radar-target');
+  const radarDistance = document.getElementById('radar-distance');
+  
+  if (!radarTarget || !radarDistance) return;
+
+  // Calculate radar target position based on direction
+  const mission = MISSIONS.find(m => m.id === currentMissionId);
+  if (!mission || !currentPosition.latitude || !currentPosition.longitude) return;
+
+  const target = mission.targetLocation;
+  const dy = target.latitude - currentPosition.latitude;
+  const dx = target.longitude - currentPosition.longitude;
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+  // Position radar target based on angle
+  const radius = 40; // pixels from center
+  const radian = (angle - 90) * Math.PI / 180; // Adjust for CSS coordinate system
+  const x = 60 + radius * Math.cos(radian);
+  const y = 60 + radius * Math.sin(radian);
+
+  radarTarget.style.left = `${x}px`;
+  radarTarget.style.top = `${y}px`;
+  
+  // Update distance display
+  radarDistance.textContent = `${Math.round(distance)}m`;
+}
+
+function getDirectionText() {
+  if (!currentMissionId || !currentPosition.latitude || !currentPosition.longitude) return '---';
+
+  const mission = MISSIONS.find(m => m.id === currentMissionId);
+  if (!mission) return '---';
+
+  const target = mission.targetLocation;
+  const dy = target.latitude - currentPosition.latitude;
+  const dx = target.longitude - currentPosition.longitude;
+
+  // Calculate direction
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  const directions = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
+  const index = Math.round(((angle + 360) % 360) / 45) % 8;
+
+  return directions[index];
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {

@@ -305,6 +305,18 @@
           <div class="map-panel">
             <div id="explore-map-container" style="width: 100%; height: 100%;"></div>
             <div class="map-north-label">北 ↑</div>
+            
+            <!-- Radar UI for direction indication -->
+            <div class="radar-overlay" id="radar-overlay" style="display: none;">
+              <div class="radar-container">
+                <div class="radar-circle" style="width: 80px; height: 80px; top: 20px; left: 20px;"></div>
+                <div class="radar-circle" style="width: 40px; height: 40px; top: 40px; left: 40px;"></div>
+                <div class="radar-center"></div>
+                <div class="radar-target" id="radar-target"></div>
+              </div>
+              <div class="radar-distance" id="radar-distance">32m</div>
+            </div>
+            
             <button class="map-update-btn" id="update-location-btn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13"/>
@@ -381,8 +393,8 @@
                   <span class="clue-distance-unit">m</span>
                 </div>
                 <div class="clue-distance-meta">
-                  <div class="clue-walk-time">徒歩 8分</div>
-                  <div class="clue-location">富山県 射水市</div>
+                  <div class="clue-direction" id="explore-direction">方向を確認</div>
+                  <div class="clue-guidance" id="explore-guidance">目標方向へ進もう</div>
                 </div>
               </div>
             </div>
