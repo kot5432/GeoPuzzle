@@ -30,7 +30,7 @@
 public/maps/map.pmtiles
 ```
 
-`public/maps/map.pmtiles` が存在しない場合、アプリは OpenStreetMap、Google Maps、地理院タイルなどのオンラインタイルへフォールバックしません。地図部分には PMTiles 実データが必要であることを示す案内を表示します。
+`public/maps/map.pmtiles` が存在しない場合、アプリは国土地理院の標準タイルへフォールバックします。PMTiles を本番利用する場合は、Range Request に対応した配信先へ配置してください。
 
 ## ローカル開発
 

@@ -76,18 +76,20 @@ const MAP_CONFIG = {
 const MISSIONS = [
   {
     id: "mission1",
-    title: "展望広場からの絶景",
-    description: "富山湾、立山連峰、新湊大橋、帆船海王丸が一望できる場所を探そう",
+    title: "4つの景色が重なる場所",
+    description: "海・山・橋・船。すべてが見える「一点」を探そう。",
+    discoveredName: "展望広場",
+    discoverySummary: "富山湾、立山連峰、新湊大橋、帆船海王丸を一望できる場所です。",
     targetLocation: {
       latitude: 36.7813,  // 海王丸パーク展望広場の実際の座標
       longitude: 137.1076,
       tolerance: 0.5  // 50cm（みちびき受信機）
     },
     hints: [
-      { level: 1, text: "海王丸が見える場所を探そう" },
-      { level: 2, text: "展望広場の方へ進んでみよう" },
-      { level: 3, text: "富山湾が見えてきた" },
-      { level: 4, text: "最も眺めが良い場所に立ってみよう" }
+      { level: 1, text: "4つが同時に見える場所を探してみよう。" },
+      { level: 2, text: "海を正面にして、周りを見渡してみよう。" },
+      { level: 3, text: "少し高い場所から、船と橋を一緒に探そう。" },
+      { level: 4, text: "4つの景色が重なる場所に立ってみよう。" }
     ],
     reward: {
       type: "stamp",
@@ -97,18 +99,20 @@ const MISSIONS = [
   },
   {
     id: "mission2",
-    title: "幸せのベルを鳴らす場所",
-    description: "海王丸船内のタイムベル（幸せのベル）の前で幸せを願おう",
+    title: "幸せを願う音",
+    description: "船の中にある、願いを託せる音を探そう。",
+    discoveredName: "幸せのベル（タイムベル）",
+    discoverySummary: "海王丸の船内にある、時間を知らせるためのベルです。",
     targetLocation: {
       latitude: 36.7812,  // 海王丸船内の実際の座標
       longitude: 137.1075,
       tolerance: 0.5  // 50cm（みちびき受信機）
     },
     hints: [
-      { level: 1, text: "海王丸の船内に入ろう" },
-      { level: 2, text: "タイムベルを探してみよう" },
-      { level: 3, text: "ベルの前に立とう" },
-      { level: 4, text: "幸せのベルを鳴らそう" }
+      { level: 1, text: "海王丸の中を探してみよう。" },
+      { level: 2, text: "時間を知らせるために使われるものを探そう。" },
+      { level: 3, text: "船の中にある、大きなベルを探そう。" },
+      { level: 4, text: "ベルの前で、願いを託してみよう。" }
     ],
     reward: {
       type: "stamp",
@@ -118,18 +122,20 @@ const MISSIONS = [
   },
   {
     id: "mission3",
-    title: "恋人の聖地記念モニュメント",
-    description: "2013年に「恋人の聖地」に選定された特別な場所を探そう",
+    title: "ふたりの証を探せ",
+    description: "恋人たちの場所であることを示す、特別な証を探そう。",
+    discoveredName: "恋人の聖地記念モニュメント",
+    discoverySummary: "海王丸パークにある、恋人の聖地に選定されたことを示すモニュメントです。",
     targetLocation: {
       latitude: 36.7811,  // 恋人の聖地モニュメントの実際の座標
       longitude: 137.1074,
       tolerance: 0.5  // 50cm（みちびき受信機）
     },
     hints: [
-      { level: 1, text: "恋人の聖地マークを探そう" },
-      { level: 2, text: "記念モニュメントの方へ進もう" },
-      { level: 3, text: "愛の場所の雰囲気を感じよう" },
-      { level: 4, text: "記念モニュメントの前に立とう" }
+      { level: 1, text: "海王丸パークには、特別に選ばれた場所がある。" },
+      { level: 2, text: "ふたりの思い出を残したくなるものを探そう。" },
+      { level: 3, text: "恋人たちの場所を示すものを探そう。" },
+      { level: 4, text: "その証の前に立ってみよう。" }
     ],
     reward: {
       type: "stamp",
@@ -385,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Update user avatar/name display
   updateUserUI();
+  updateStats();
 
   // Start distance counter animation on explore screen
   startDistanceAnimation();
@@ -396,10 +403,17 @@ document.addEventListener('DOMContentLoaded', () => {
       forceClearBtn.addEventListener('click', forceClear);
     }
 
-    const toggleDebugBtn = document.getElementById('toggle-debug-btn');
-    if (toggleDebugBtn) {
-      toggleDebugBtn.addEventListener('click', toggleDebugPanel);
-    }
+    document.querySelectorAll('[data-debug-toggle]').forEach((button) => {
+      button.addEventListener('click', toggleDebugPanel);
+    });
+
+    document.getElementById('debug-show-all-hints-btn')?.addEventListener('click', showAllHints);
+    document.getElementById('debug-simulate-qzss-btn')?.addEventListener('click', () => simulateDebugPosition('qzss', 5));
+    document.getElementById('debug-simulate-gps-btn')?.addEventListener('click', () => simulateDebugPosition('gps', 5));
+    document.getElementById('debug-teleport-approach-btn')?.addEventListener('click', () => simulateDebugPosition('gps', 8));
+    document.getElementById('debug-teleport-hot-btn')?.addEventListener('click', () => simulateDebugPosition('qzss', 0.5));
+    document.getElementById('debug-reset-missions-btn')?.addEventListener('click', resetMissions);
+    document.getElementById('debug-clear-all-btn')?.addEventListener('click', clearAllMissions);
 
     // Show debug panel by default in debug mode
     updateDebugUI();
@@ -614,8 +628,10 @@ function showDiscovery() {
         const rewardEl = document.getElementById('reward-badge');
 
         if (iconEl) iconEl.textContent = mission.reward.icon;
-        if (titleEl) titleEl.textContent = mission.title;
-        if (messageEl) messageEl.textContent = mission.description;
+        if (titleEl) titleEl.textContent = mission.discoveredName || mission.title;
+        if (messageEl) messageEl.textContent = mission.discoverySummary || mission.description;
+        const summaryEl = document.getElementById('discovery-summary');
+        if (summaryEl) summaryEl.textContent = mission.discoverySummary || mission.description;
         if (rewardEl) rewardEl.textContent = mission.reward.name;
       }
     }
@@ -664,10 +680,18 @@ function renderDiscoveryList() {
   const list = document.getElementById('discovery-list');
   if (!list) return;
 
-  // Merge saved collection with demo spots
-  const toShow = collection.length > 0
-    ? SPOTS.filter((s) => collection.includes(s.id))
-    : SPOTS; // show demo data even before discovering
+  const toShow = MISSIONS
+    .filter((mission) => missionProgress[mission.id]?.completed)
+    .map((mission) => ({
+      id: mission.id,
+      name: mission.discoveredName || mission.title,
+      place: mission.discoverySummary || mission.description,
+      date: missionProgress[mission.id].completedAt
+        ? new Date(missionProgress[mission.id].completedAt).toLocaleDateString('ja-JP')
+        : '-',
+      status: '発見済み',
+      icon: mission.reward.icon,
+    }));
 
   if (toShow.length === 0) {
     list.innerHTML = '<div class="empty-state">まだ発見したスポットがありません</div>';
@@ -737,7 +761,7 @@ function startMission(missionId) {
   currentMissionId = missionId;
   currentHintLevel = 1;
   showScreen('explore');
-  ensureMapsMounted().then(() => {
+  ensureMapsMounted('explore').then(() => {
     updateExploreScreen();
   });
 }
@@ -820,8 +844,56 @@ function forceClear() {
     return;
   }
 
+  if (currentMissionId) completeMission(currentMissionId);
+  renderMissionSelect();
   console.log('Force clear triggered');
   showDiscovery();
+}
+
+function showAllHints() {
+  if (!currentMissionId) return;
+  const mission = MISSIONS.find((item) => item.id === currentMissionId);
+  if (!mission) return;
+  currentHintLevel = mission.hints.length;
+  updateHints();
+}
+
+function simulateDebugPosition(provider, distanceMeters) {
+  const mission = MISSIONS.find((item) => item.id === currentMissionId) || MISSIONS[0];
+  const longitudeOffset = distanceMeters / (111320 * Math.cos(mission.targetLocation.latitude * Math.PI / 180));
+  currentPosition.latitude = mission.targetLocation.latitude;
+  currentPosition.longitude = mission.targetLocation.longitude + longitudeOffset;
+  currentDistance = distanceMeters;
+  useQZSS = provider === 'qzss';
+  qzssData.position.latitude = currentPosition.latitude;
+  qzssData.position.longitude = currentPosition.longitude;
+  qzssData.accuracy.hdop = provider === 'qzss' ? 0.4 : 5;
+  syncPositionToMaps();
+  updateDistanceFromTarget();
+  updateDebugUI();
+}
+
+function resetMissions() {
+  missionProgress = {};
+  collection = [];
+  localStorage.removeItem('geopuzzle_mission_progress');
+  localStorage.removeItem('geopuzzle_collection');
+  currentMissionId = null;
+  currentHintLevel = 1;
+  renderMissionSelect();
+  updateStats();
+  closeDiscovery();
+}
+
+function clearAllMissions() {
+  MISSIONS.forEach((mission) => {
+    missionProgress[mission.id] = { completed: true, completedAt: new Date().toISOString() };
+    if (!collection.includes(mission.id)) collection.push(mission.id);
+  });
+  localStorage.setItem('geopuzzle_mission_progress', JSON.stringify(missionProgress));
+  localStorage.setItem('geopuzzle_collection', JSON.stringify(collection));
+  renderMissionSelect();
+  updateStats();
 }
 
 function toggleDebugPanel() {
