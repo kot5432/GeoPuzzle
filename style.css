@@ -999,6 +999,42 @@ body {
   height: 14px;
 }
 
+/* GPS Info Panel */
+.gps-info-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gps-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.gps-info-item:last-child {
+  border-bottom: none;
+}
+
+.gps-info-label {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.gps-info-value {
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  color: white;
+  font-weight: 600;
+  text-align: right;
+}
+
 .clue-badge {
   font-family: 'Outfit', sans-serif;
   font-size: 10px;

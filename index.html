@@ -305,6 +305,14 @@
                 <span class="debug-label">現在位置:</span>
                 <span class="debug-value" id="debug-position">-</span>
               </div>
+              <div class="debug-info-row">
+                <span class="debug-label">精度:</span>
+                <span class="debug-value" id="debug-accuracy">-</span>
+              </div>
+              <div class="debug-info-row">
+                <span class="debug-label">衛星:</span>
+                <span class="debug-value" id="debug-satellites">-</span>
+              </div>
               <div class="debug-divider"></div>
               <p class="debug-section-label">ヒント制御</p>
               <div class="debug-actions">
@@ -421,6 +429,22 @@
                 </svg>
                 切断
               </button>
+            </div>
+
+            <!-- GPS Info Panel -->
+            <div class="gps-info-panel">
+              <div class="gps-info-item">
+                <span class="gps-info-label">測位精度:</span>
+                <span class="gps-info-value" id="gps-accuracy">-</span>
+              </div>
+              <div class="gps-info-item">
+                <span class="gps-info-label">衛星数:</span>
+                <span class="gps-info-value" id="satellite-count">-</span>
+              </div>
+              <div class="gps-info-item">
+                <span class="gps-info-label">受信状態:</span>
+                <span class="gps-info-value" id="reception-status">-</span>
+              </div>
             </div>
 
             <div class="hints-section">

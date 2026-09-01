@@ -38,6 +38,35 @@ const SPOTS = [
   },
 ];
 
+// QZSS Data Store
+const qzssData = {
+  position: { latitude: null, longitude: null, altitude: null },
+  accuracy: { hdop: null, pdop: null, vdop: null },
+  satellites: {
+    total: 0,
+    gps: 0,
+    qzss: 0,
+    glonass: 0,
+    details: []
+  },
+  fixQuality: null,
+  timestamp: null
+};
+
+// Map Configuration for GeoPuzzle
+const MAP_CONFIG = {
+  bounds: {
+    north: 36.78,    // 北緯 (海王丸パーク周辺)
+    south: 36.77,    // 南緯
+    east: 137.13,    // 東経
+    west: 137.12     // 西経
+  },
+  size: {
+    width: 640,
+    height: 520
+  }
+};
+
 // Mission data structure
 const MISSIONS = [
   {
@@ -749,21 +778,41 @@ function processNMEAData(data) {
 }
 
 function parseNMEASentence(sentence) {
-  // Parse NMEA-0183 sentences
+  // Parse NMEA-0183 sentences with extended QZSS support
   // Example: $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
 
+  const result = { position: null, accuracy: null, satellites: null };
+
   if (sentence.startsWith('$GPGGA') || sentence.startsWith('$GNGGA')) {
-    // GGA sentence contains position data
+    // GGA sentence contains position data with accuracy info
     const parts = sentence.split(',');
-    if (parts.length >= 6) {
+    if (parts.length >= 15) {
       const time = parts[1];
       const lat = parseNMEACoordinate(parts[2], parts[3]);
       const lon = parseNMEACoordinate(parts[4], parts[5]);
+      const fixQuality = parseInt(parts[6]);
+      const satellitesUsed = parseInt(parts[7]);
+      const hdop = parseFloat(parts[8]);
+      const altitude = parseFloat(parts[9]);
 
       if (lat && lon) {
+        result.position = { latitude: lat, longitude: lon, altitude };
+        result.accuracy = { hdop };
+        result.satellites = { used: satellitesUsed };
+        result.fixQuality = fixQuality;
+
+        // Update global state
         currentPosition = { latitude: lat, longitude: lon };
+        qzssData.position = { latitude: lat, longitude: lon, altitude };
+        qzssData.accuracy = { hdop, pdop: null, vdop: null };
+        qzssData.satellites.used = satellitesUsed;
+        qzssData.fixQuality = fixQuality;
+        qzssData.timestamp = Date.now();
+
         updateDistanceFromTarget();
-        console.log('Position updated:', currentPosition);
+        updatePlayerMarkerOnMap(lat, lon); // Update map marker
+        updateQZSSUI();
+        console.log('Position updated:', currentPosition, 'QZSS data:', qzssData);
       }
     }
   } else if (sentence.startsWith('$GPRMC') || sentence.startsWith('$GNRMC')) {
@@ -774,12 +823,77 @@ function parseNMEASentence(sentence) {
       const lon = parseNMEACoordinate(parts[5], parts[6]);
 
       if (lat && lon) {
+        result.position = { latitude: lat, longitude: lon };
+
+        // Update global state
         currentPosition = { latitude: lat, longitude: lon };
+        qzssData.position = { latitude: lat, longitude: lon };
+        qzssData.timestamp = Date.now();
+
         updateDistanceFromTarget();
+        updatePlayerMarkerOnMap(lat, lon); // Update map marker
+        updateQZSSUI();
         console.log('Position updated:', currentPosition);
       }
     }
+  } else if (sentence.startsWith('$GPGSA') || sentence.startsWith('$GNGSA') || sentence.startsWith('$QZQSA')) {
+    // GSA sentence contains DOP values and active satellites
+    const parts = sentence.split(',');
+    if (parts.length >= 18) {
+      const mode = parts[1];
+      const fixType = parseInt(parts[2]);
+      const pdop = parseFloat(parts[15]);
+      const hdop = parseFloat(parts[16]);
+      const vdop = parseFloat(parts[17]);
+
+      result.accuracy = { pdop, hdop, vdop };
+
+      // Update global state
+      qzssData.accuracy = { pdop, hdop, vdop };
+      updateQZSSUI();
+      console.log('Accuracy updated:', result.accuracy);
+    }
+  } else if (sentence.startsWith('$GPGSV') || sentence.startsWith('$GNGSV') || sentence.startsWith('$QZGSV')) {
+    // GSV sentence contains satellite information
+    const parts = sentence.split(',');
+    if (parts.length >= 4) {
+      const totalMessages = parseInt(parts[1]);
+      const messageNumber = parseInt(parts[2]);
+      const totalSatellites = parseInt(parts[3]);
+
+      // Parse satellite details (4 satellites per message)
+      const satelliteDetails = [];
+      for (let i = 4; i < parts.length - 1; i += 4) {
+        if (parts[i] && parts[i+1] && parts[i+2] && parts[i+3]) {
+          satelliteDetails.push({
+            prn: parseInt(parts[i]),
+            elevation: parseInt(parts[i+1]),
+            azimuth: parseInt(parts[i+2]),
+            snr: parseInt(parts[i+3])
+          });
+        }
+      }
+
+      result.satellites = {
+        total: totalSatellites,
+        details: satelliteDetails
+      };
+
+      // Update global state
+      qzssData.satellites.total = totalSatellites;
+      qzssData.satellites.details = [...qzssData.satellites.details, ...satelliteDetails];
+
+      // Count by constellation based on PRN ranges
+      qzssData.satellites.gps = qzssData.satellites.details.filter(s => s.prn >= 1 && s.prn <= 32).length;
+      qzssData.satellites.qzss = qzssData.satellites.details.filter(s => s.prn >= 193 && s.prn <= 202).length;
+      qzssData.satellites.glonass = qzssData.satellites.details.filter(s => s.prn >= 65 && s.prn <= 96).length;
+
+      updateQZSSUI();
+      console.log('Satellites updated:', result.satellites);
+    }
   }
+
+  return result;
 }
 
 function parseNMEACoordinate(coord, direction) {
@@ -864,5 +978,150 @@ function updateSerialConnectionUI() {
       qzssStatus.textContent = isConnected ? '接続中' : '未接続';
       qzssStatus.style.color = isConnected ? '#4CAF50' : '#999';
     }
+  }
+}
+
+// ===================================
+// Map Coordinate Conversion Functions
+// ===================================
+function geoToSvgCoords(lat, lon) {
+  const x = ((lon - MAP_CONFIG.bounds.west) / (MAP_CONFIG.bounds.east - MAP_CONFIG.bounds.west)) * MAP_CONFIG.size.width;
+  const y = ((MAP_CONFIG.bounds.north - lat) / (MAP_CONFIG.bounds.north - MAP_CONFIG.bounds.south)) * MAP_CONFIG.size.height;
+  return { x, y };
+}
+
+function svgToGeoCoords(x, y) {
+  const lon = MAP_CONFIG.bounds.west + (x / MAP_CONFIG.size.width) * (MAP_CONFIG.bounds.east - MAP_CONFIG.bounds.west);
+  const lat = MAP_CONFIG.bounds.north - (y / MAP_CONFIG.size.height) * (MAP_CONFIG.bounds.north - MAP_CONFIG.bounds.south);
+  return { lat, lon };
+}
+
+// ===================================
+// Map Update Functions
+// ===================================
+function updatePlayerMarkerOnMap(lat, lon) {
+  const coords = geoToSvgCoords(lat, lon);
+
+  // SVG上のプレイヤーマーカーを更新
+  const playerMarker = document.getElementById('player-marker');
+  const playerInner = document.getElementById('player-inner');
+  const playerDot = document.getElementById('player-dot');
+
+  if (playerMarker) {
+    playerMarker.setAttribute('cx', coords.x);
+    playerMarker.setAttribute('cy', coords.y);
+  }
+  if (playerInner) {
+    playerInner.setAttribute('cx', coords.x);
+    playerInner.setAttribute('cy', coords.y);
+  }
+  if (playerDot) {
+    playerDot.setAttribute('cx', coords.x);
+    playerDot.setAttribute('cy', coords.y);
+  }
+
+  // 方向線を更新
+  updateDirectionLine(coords);
+
+  console.log('Player marker updated to:', coords);
+}
+
+function updateDirectionLine(playerCoords) {
+  const mission = MISSIONS.find(m => m.id === currentMissionId);
+  if (!mission) return;
+
+  const targetCoords = geoToSvgCoords(
+    mission.targetLocation.latitude,
+    mission.targetLocation.longitude
+  );
+
+  // 方向線を探す（既存の線を更新）
+  const mapSvg = document.querySelector('.map-panel-svg');
+  if (mapSvg) {
+    // 既存の方向線を探すか、新規作成
+    let directionLine = mapSvg.querySelector('.direction-line');
+    if (!directionLine) {
+      directionLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      directionLine.setAttribute('class', 'direction-line');
+      directionLine.setAttribute('stroke', '#1C2E3A');
+      directionLine.setAttribute('stroke-width', '1.5');
+      directionLine.setAttribute('stroke-dasharray', '6,5');
+      directionLine.setAttribute('opacity', '0.4');
+      mapSvg.appendChild(directionLine);
+    }
+
+    directionLine.setAttribute('x1', playerCoords.x);
+    directionLine.setAttribute('y1', playerCoords.y);
+    directionLine.setAttribute('x2', targetCoords.x);
+    directionLine.setAttribute('y2', targetCoords.y);
+  }
+}
+
+// ===================================
+// QZSS UI Update Functions
+// ===================================
+function updateQZSSUI() {
+  // Update accuracy display
+  const accuracyEl = document.getElementById('gps-accuracy');
+  if (accuracyEl && qzssData.accuracy.hdop) {
+    const accuracy = qzssData.accuracy.hdop * 5; // HDOP to meters approximation
+    accuracyEl.textContent = `精度: ±${accuracy.toFixed(1)}m`;
+
+    // Color based on accuracy (QZSS can achieve centimeter-level)
+    if (accuracy < 0.1) {
+      accuracyEl.style.color = '#4CAF50'; // Centimeter-level
+    } else if (accuracy < 1.0) {
+      accuracyEl.style.color = '#8BC34A'; // Sub-meter
+    } else if (accuracy < 5.0) {
+      accuracyEl.style.color = '#FFC107'; // Meter-level
+    } else {
+      accuracyEl.style.color = '#F44336'; // Low accuracy
+    }
+  }
+
+  // Update satellite count
+  const satCountEl = document.getElementById('satellite-count');
+  if (satCountEl) {
+    satCountEl.textContent = `${qzssData.satellites.total}衛星 (GPS:${qzssData.satellites.gps}, QZSS:${qzssData.satellites.qzss})`;
+  }
+
+  // Update reception status
+  const receptionEl = document.getElementById('reception-status');
+  if (receptionEl) {
+    if (qzssData.fixQuality === 1) {
+      receptionEl.textContent = 'GPSのみ';
+      receptionEl.style.color = '#FFC107';
+    } else if (qzssData.fixQuality === 2) {
+      receptionEl.textContent = '2D測位';
+      receptionEl.style.color = '#4CAF50';
+    } else if (qzssData.fixQuality >= 3) {
+      receptionEl.textContent = '3D測位 (QZSS補正)';
+      receptionEl.style.color = '#2196F3';
+    } else {
+      receptionEl.textContent = '測位不可';
+      receptionEl.style.color = '#F44336';
+    }
+  }
+
+  // Update debug panel with QZSS data
+  if (debugConfig.debugMode) {
+    updateDebugQZSSInfo();
+  }
+}
+
+function updateDebugQZSSInfo() {
+  const debugPosition = document.getElementById('debug-position');
+  if (debugPosition && qzssData.position.latitude && qzssData.position.longitude) {
+    debugPosition.textContent = `${qzssData.position.latitude.toFixed(6)}, ${qzssData.position.longitude.toFixed(6)}`;
+  }
+
+  const debugAccuracy = document.getElementById('debug-accuracy');
+  if (debugAccuracy && qzssData.accuracy.hdop) {
+    debugAccuracy.textContent = `HDOP: ${qzssData.accuracy.hdop.toFixed(2)}`;
+  }
+
+  const debugSatellites = document.getElementById('debug-satellites');
+  if (debugSatellites) {
+    debugSatellites.textContent = `Total: ${qzssData.satellites.total}, QZSS: ${qzssData.satellites.qzss}`;
   }
 }
