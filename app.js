@@ -48,6 +48,9 @@ const NAV_MODES = {
 
 let currentNavMode = NAV_MODES.AREA_HINT;
 
+// Periodic status check
+let statusCheckInterval = null;
+
 // Demo spot data
 const SPOTS = [
   {
@@ -72,7 +75,8 @@ const qzssData = {
     details: []
   },
   fixQuality: null,
-  timestamp: null
+  timestamp: null,
+  signalQuality: 'unknown', // 'excellent', 'good', 'poor', 'none'
 };
 
 // Map Configuration for GeoPuzzle (Leaflet)
@@ -972,6 +976,9 @@ async function connectSerialPort() {
     // Start reading data
     readSerialData();
 
+    // Start periodic status check
+    startStatusCheck();
+
     console.log('Serial port connected successfully');
   } catch (error) {
     console.error('Serial port connection failed:', error);
@@ -981,6 +988,9 @@ async function connectSerialPort() {
 
 async function disconnectSerialPort() {
   try {
+    // Stop periodic status check
+    stopStatusCheck();
+
     if (serialReader) {
       await serialReader.cancel();
       serialReader = null;
@@ -995,9 +1005,30 @@ async function disconnectSerialPort() {
     useQZSS = false;
     updateSerialConnectionUI();
 
+    // Reset signal quality
+    qzssData.signalQuality = 'none';
+    updateQZSSUI();
+
     console.log('Serial port disconnected');
   } catch (error) {
     console.error('Serial port disconnection failed:', error);
+  }
+}
+
+function startStatusCheck() {
+  // Check signal quality every 5 seconds
+  statusCheckInterval = setInterval(() => {
+    if (isConnected) {
+      checkPositionValidity();
+      updateQZSSUI();
+    }
+  }, 5000);
+}
+
+function stopStatusCheck() {
+  if (statusCheckInterval) {
+    clearInterval(statusCheckInterval);
+    statusCheckInterval = null;
   }
 }
 
@@ -1066,6 +1097,9 @@ function parseNMEASentence(sentence) {
         qzssData.fixQuality = fixQuality;
         qzssData.timestamp = Date.now();
 
+        // Evaluate signal quality
+        evaluateSignalQuality();
+
         updateDistanceFromTarget();
         updatePlayerMarkerOnMap(lat, lon); // Update map marker
         updateQZSSUI();
@@ -1087,6 +1121,9 @@ function parseNMEASentence(sentence) {
         qzssData.position = { latitude: lat, longitude: lon };
         qzssData.timestamp = Date.now();
 
+        // Evaluate signal quality
+        evaluateSignalQuality();
+
         updateDistanceFromTarget();
         updatePlayerMarkerOnMap(lat, lon); // Update map marker
         updateQZSSUI();
@@ -1107,6 +1144,7 @@ function parseNMEASentence(sentence) {
 
       // Update global state
       qzssData.accuracy = { pdop, hdop, vdop };
+      evaluateSignalQuality();
       updateQZSSUI();
       console.log('Accuracy updated:', result.accuracy);
     }
@@ -1145,12 +1183,60 @@ function parseNMEASentence(sentence) {
       qzssData.satellites.qzss = qzssData.satellites.details.filter(s => s.prn >= 193 && s.prn <= 202).length;
       qzssData.satellites.glonass = qzssData.satellites.details.filter(s => s.prn >= 65 && s.prn <= 96).length;
 
+      evaluateSignalQuality();
       updateQZSSUI();
       console.log('Satellites updated:', result.satellites);
     }
   }
 
   return result;
+}
+
+function evaluateSignalQuality() {
+  const satellites = qzssData.satellites.total;
+  const hdop = qzssData.accuracy.hdop;
+  const fixQuality = qzssData.fixQuality;
+
+  // Signal quality evaluation based on satellites and HDOP
+  if (satellites >= 8 && hdop && hdop < 2.0 && fixQuality >= 2) {
+    qzssData.signalQuality = 'excellent';
+  } else if (satellites >= 5 && hdop && hdop < 5.0 && fixQuality >= 2) {
+    qzssData.signalQuality = 'good';
+  } else if (satellites >= 3 && fixQuality >= 1) {
+    qzssData.signalQuality = 'poor';
+  } else {
+    qzssData.signalQuality = 'none';
+  }
+
+  console.log('Signal quality:', qzssData.signalQuality);
+}
+
+function checkPositionValidity() {
+  // Check if position data is recent and valid
+  const now = Date.now();
+  const timeSinceLastUpdate = qzssData.timestamp ? (now - qzssData.timestamp) : Infinity;
+
+  // If no position data for more than 10 seconds, consider it invalid
+  if (timeSinceLastUpdate > 10000) {
+    qzssData.signalQuality = 'none';
+    return false;
+  }
+
+  // Check if position data is reasonable
+  if (!qzssData.position.latitude || !qzssData.position.longitude) {
+    qzssData.signalQuality = 'none';
+    return false;
+  }
+
+  // Check if position is within reasonable bounds
+  const lat = qzssData.position.latitude;
+  const lon = qzssData.position.longitude;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    qzssData.signalQuality = 'none';
+    return false;
+  }
+
+  return true;
 }
 
 function parseNMEACoordinate(coord, direction) {
@@ -1346,34 +1432,49 @@ function updateSerialConnectionUI() {
 // QZSS UI Update Functions
 // ===================================
 function updateQZSSUI() {
+  // Check position validity
+  const isPositionValid = checkPositionValidity();
+
   // Update accuracy display
   const accuracyEl = document.getElementById('gps-accuracy');
-  if (accuracyEl && qzssData.accuracy.hdop) {
-    const accuracy = qzssData.accuracy.hdop * 5; // HDOP to meters approximation
-    accuracyEl.textContent = `精度: ±${accuracy.toFixed(1)}m`;
+  if (accuracyEl) {
+    if (!isPositionValid || qzssData.signalQuality === 'none') {
+      accuracyEl.textContent = '信号なし';
+      accuracyEl.style.color = '#F44336';
+    } else if (qzssData.accuracy.hdop) {
+      const accuracy = qzssData.accuracy.hdop * 5; // HDOP to meters approximation
+      accuracyEl.textContent = `精度: ±${accuracy.toFixed(1)}m`;
 
-    // Color based on accuracy (QZSS can achieve centimeter-level)
-    if (accuracy < 0.1) {
-      accuracyEl.style.color = '#4CAF50'; // Centimeter-level
-    } else if (accuracy < 1.0) {
-      accuracyEl.style.color = '#8BC34A'; // Sub-meter
-    } else if (accuracy < 5.0) {
-      accuracyEl.style.color = '#FFC107'; // Meter-level
-    } else {
-      accuracyEl.style.color = '#F44336'; // Low accuracy
+      // Color based on accuracy (QZSS can achieve centimeter-level)
+      if (accuracy < 0.1) {
+        accuracyEl.style.color = '#4CAF50'; // Centimeter-level
+      } else if (accuracy < 1.0) {
+        accuracyEl.style.color = '#8BC34A'; // Sub-meter
+      } else if (accuracy < 5.0) {
+        accuracyEl.style.color = '#FFC107'; // Meter-level
+      } else {
+        accuracyEl.style.color = '#F44336'; // Low accuracy
+      }
     }
   }
 
   // Update satellite count
   const satCountEl = document.getElementById('satellite-count');
   if (satCountEl) {
-    satCountEl.textContent = `${qzssData.satellites.total}衛星 (GPS:${qzssData.satellites.gps}, QZSS:${qzssData.satellites.qzss})`;
+    if (!isPositionValid || qzssData.signalQuality === 'none') {
+      satCountEl.textContent = '受信不可';
+    } else {
+      satCountEl.textContent = `${qzssData.satellites.total}衛星 (GPS:${qzssData.satellites.gps}, QZSS:${qzssData.satellites.qzss})`;
+    }
   }
 
   // Update reception status
   const receptionEl = document.getElementById('reception-status');
   if (receptionEl) {
-    if (qzssData.fixQuality === 1) {
+    if (!isPositionValid || qzssData.signalQuality === 'none') {
+      receptionEl.textContent = '信号なし (屋内?)';
+      receptionEl.style.color = '#F44336';
+    } else if (qzssData.fixQuality === 1) {
       receptionEl.textContent = 'GPSのみ';
       receptionEl.style.color = '#FFC107';
     } else if (qzssData.fixQuality === 2) {
@@ -1385,6 +1486,32 @@ function updateQZSSUI() {
     } else {
       receptionEl.textContent = '測位不可';
       receptionEl.style.color = '#F44336';
+    }
+  }
+
+  // Update signal quality indicator
+  const signalQualityEl = document.getElementById('signal-quality');
+  if (signalQualityEl) {
+    switch (qzssData.signalQuality) {
+      case 'excellent':
+        signalQualityEl.textContent = '● 受信良好';
+        signalQualityEl.style.color = '#4CAF50';
+        break;
+      case 'good':
+        signalQualityEl.textContent = '● 受信良好';
+        signalQualityEl.style.color = '#8BC34A';
+        break;
+      case 'poor':
+        signalQualityEl.textContent = '● 受信不良';
+        signalQualityEl.style.color = '#FFC107';
+        break;
+      case 'none':
+        signalQualityEl.textContent = '● 信号なし';
+        signalQualityEl.style.color = '#F44336';
+        break;
+      default:
+        signalQualityEl.textContent = '● 不明';
+        signalQualityEl.style.color = '#999';
     }
   }
 
