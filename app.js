@@ -7,6 +7,12 @@
 // ===================================
 let currentUser = { id: 'demo', name: 'k', email: 'k.kyogaku.123@gmail.com' };
 let currentScreen = 'home';
+const STATE_VERSION = '2026-09-01-map-reset';
+if (localStorage.getItem('geopuzzle_state_version') !== STATE_VERSION) {
+  localStorage.removeItem('geopuzzle_collection');
+  localStorage.removeItem('geopuzzle_mission_progress');
+  localStorage.setItem('geopuzzle_state_version', STATE_VERSION);
+}
 let collection = JSON.parse(localStorage.getItem('geopuzzle_collection') || '[]');
 let currentMissionId = null;
 let currentHintLevel = 1;
@@ -26,7 +32,7 @@ let isConnected = false;
 let currentPosition = { latitude: null, longitude: null };
 let useQZSS = false;  // みちびきを使用するかどうか
 
-// Google Maps (GeoMap コンポーネントの Promise を保持)
+// MapLibre (GeoMap コンポーネントの Promise を保持)
 let homeMap = null;
 let exploreMap = null;
 

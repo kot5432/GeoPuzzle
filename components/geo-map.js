@@ -3,6 +3,18 @@
   'use strict';
 
   var JAPAN_BOUNDS = [[122.0, 23.5], [154.0, 45.6]];
+  var GSI_FALLBACK_STYLE = {
+    version: 8,
+    sources: {
+      gsi: {
+        type: 'raster',
+        tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '地図データ © 国土地理院',
+      },
+    },
+    layers: [{ id: 'gsi', type: 'raster', source: 'gsi' }],
+  };
 
   function markerElement(color, size) {
     var element = document.createElement('div');
@@ -131,7 +143,15 @@
       destroy: function () { Object.keys(state.targets).forEach(removeTarget); if (state.userMarker) state.userMarker.remove(); map.remove(); delete container._geoMap; },
     };
     container._geoMap = instance;
-    map.on('error', function (event) { if (event && event.error) console.error('MapLibre error:', event.error); });
+    var fallbackActivated = false;
+    map.on('error', function (event) {
+      if (event && event.error) console.error('MapLibre error:', event.error);
+      var errorText = event && event.error ? String(event.error.message || event.error) : '';
+      if (!fallbackActivated && ((event && event.sourceId === 'openmaptiles') || errorText.indexOf('map.pmtiles') !== -1)) {
+        fallbackActivated = true;
+        map.setStyle(GSI_FALLBACK_STYLE);
+      }
+    });
     return Promise.resolve(instance);
   }
 
