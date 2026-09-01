@@ -56,10 +56,10 @@ const qzssData = {
 // Map Configuration for GeoPuzzle
 const MAP_CONFIG = {
   bounds: {
-    north: 36.78,    // 北緯 (海王丸パーク周辺)
-    south: 36.77,    // 南緯
-    east: 137.13,    // 東経
-    west: 137.12     // 西経
+    north: 36.785,   // 北緯 (海王丸パーク周辺)
+    south: 36.775,   // 南緯
+    east: 137.115,   // 東経
+    west: 137.100    // 西経
   },
   size: {
     width: 640,
@@ -74,8 +74,8 @@ const MISSIONS = [
     title: "展望広場からの絶景",
     description: "富山湾、立山連峰、新湊大橋、帆船海王丸が一望できる場所を探そう",
     targetLocation: {
-      latitude: 36.7777,  // 仮座標（フィールドワークで確定）
-      longitude: 137.1234,
+      latitude: 36.7813,  // 海王丸パーク展望広場の実際の座標
+      longitude: 137.1076,
       tolerance: 0.5  // 50cm（みちびき受信機）
     },
     hints: [
@@ -95,8 +95,8 @@ const MISSIONS = [
     title: "幸せのベルを鳴らす場所",
     description: "海王丸船内のタイムベル（幸せのベル）の前で幸せを願おう",
     targetLocation: {
-      latitude: 36.7778,  // 仮座標（フィールドワークで確定）
-      longitude: 137.1235,
+      latitude: 36.7812,  // 海王丸船内の実際の座標
+      longitude: 137.1075,
       tolerance: 0.5  // 50cm（みちびき受信機）
     },
     hints: [
@@ -116,8 +116,8 @@ const MISSIONS = [
     title: "恋人の聖地記念モニュメント",
     description: "2013年に「恋人の聖地」に選定された特別な場所を探そう",
     targetLocation: {
-      latitude: 36.7779,  // 仮座標（フィールドワークで確定）
-      longitude: 137.1236,
+      latitude: 36.7811,  // 恋人の聖地モニュメントの実際の座標
+      longitude: 137.1074,
       tolerance: 0.5  // 50cm（みちびき受信機）
     },
     hints: [
@@ -333,6 +333,29 @@ function simulateLocationUpdate() {
   const btn = document.getElementById('update-location-btn');
   if (!btn) return;
 
+  // If QZSS is connected, use real data instead of simulation
+  if (useQZSS && currentPosition.latitude && currentPosition.longitude) {
+    btn.textContent = '更新中...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+      // Force update with real QZSS data
+      updateDistanceFromTarget();
+      updatePlayerMarkerOnMap(currentPosition.latitude, currentPosition.longitude);
+
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+        現在地を更新
+      `;
+      btn.disabled = false;
+    }, 1200);
+    return;
+  }
+
+  // Demo mode simulation
   btn.textContent = '更新中...';
   btn.disabled = true;
 
@@ -593,8 +616,29 @@ function updateExploreScreen() {
     breadcrumbEl.textContent = `MISSION ${missionIndex} / ${MISSIONS.length}`;
   }
 
+  // Update target marker on map based on mission location
+  updateTargetMarkerOnMap(mission.targetLocation.latitude, mission.targetLocation.longitude);
+
   // Update hints
   updateHints();
+}
+
+function updateTargetMarkerOnMap(lat, lon) {
+  const coords = geoToSvgCoords(lat, lon);
+
+  // SVG上のターゲットマーカーを更新
+  const targetMarkers = document.querySelectorAll('circle[fill="#E05C35"]');
+  targetMarkers.forEach(marker => {
+    const currentCx = marker.getAttribute('cx');
+    const currentCy = marker.getAttribute('cy');
+    // Update only the main target marker (not the animation one)
+    if (currentCx === '324' && currentCy === '192') {
+      marker.setAttribute('cx', coords.x);
+      marker.setAttribute('cy', coords.y);
+    }
+  });
+
+  console.log('ターゲットマーカー更新:', { lat, lon }, 'SVG座標:', coords);
 }
 
 function updateHints() {
@@ -1023,7 +1067,7 @@ function updatePlayerMarkerOnMap(lat, lon) {
   // 方向線を更新
   updateDirectionLine(coords);
 
-  console.log('Player marker updated to:', coords);
+  console.log('QZSS位置更新:', { lat, lon }, 'SVG座標:', coords);
 }
 
 function updateDirectionLine(playerCoords) {
