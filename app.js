@@ -82,14 +82,40 @@ const qzssData = {
 // Map Configuration for GeoPuzzle (Leaflet)
 const MAP_CONFIG = {
   center: {
-    lat: 36.7813,  // 海王丸パーク中心
-    lng: 137.1076
+    lat: 37.5333,  // 長岡高専周辺
+    lng: 138.8710
   },
-  zoom: 13  // 富山県全域が見えるズームレベル
+  zoom: 13
 };
 
 // Mission data structure
 const MISSIONS = [
+  {
+    id: "mission-kosen-zaka",
+    title: "最後の一歩",
+    description: "長岡高専へ入る前、最後に越えるものを探せ。",
+    discoveredName: "高専坂",
+    discoverySummary: "長岡高専へ向かう「最後の一歩」。毎日の通学の中で、何気なく越えてきた坂です。",
+    targetLocation: {
+      latitude: 37.5333,  // ⚠️ 現地でみちびき受信機を使って高専坂の一点に修正
+      longitude: 138.8710,
+      tolerance: 8
+    },
+    area: "長岡高専 周辺",
+    city: "新潟県 長岡市",
+    hints: [
+      { level: 1, text: "長岡高専へ向かう道の途中にある。" },
+      { level: 2, text: "足元に注目して、上り下りを感じてみよう。" },
+      { level: 3, text: "「越える」もの。地面の傾きにヒントがある。" },
+      { level: 4, text: "そう、それは「坂」だ。最後に越える坂の頂点に立とう。" }
+    ],
+    reward: {
+      type: "stamp",
+      name: "最後の一歩",
+      icon: "🎒"
+    },
+    published: true
+  },
   {
     id: "mission1",
     title: "4つの景色が重なる場所",
@@ -111,7 +137,8 @@ const MISSIONS = [
       type: "stamp",
       name: "絶景発見者",
       icon: "🏔️"
-    }
+    },
+    published: false
   },
   {
     id: "mission2",
@@ -134,7 +161,8 @@ const MISSIONS = [
       type: "stamp",
       name: "幸せの鐘",
       icon: "🔔"
-    }
+    },
+    published: false
   },
   {
     id: "mission3",
@@ -157,9 +185,12 @@ const MISSIONS = [
       type: "stamp",
       name: "愛の聖地",
       icon: "💕"
-    }
+    },
+    published: false
   }
 ];
+
+const PUBLISHED_MISSIONS = MISSIONS.filter(m => m.published !== false);
 
 // ===================================
 // GeoMap Bridge Functions
@@ -843,7 +874,7 @@ function renderMissionSelect() {
   const list = document.getElementById('mission-select-list');
   if (!list) return;
 
-  list.innerHTML = MISSIONS.map((mission, index) => {
+  list.innerHTML = PUBLISHED_MISSIONS.map((mission, index) => {
     const isCompleted = missionProgress[mission.id]?.completed;
     const statusClass = isCompleted ? 'completed' : '';
     const statusText = isCompleted ? 'クリア済み' : '未クリア';
@@ -932,7 +963,7 @@ async function renderMissionAreasOnHomeMap() {
     }
 
     // Build GeoJSON feature collection
-    const features = MISSIONS.map((mission) => {
+    const features = PUBLISHED_MISSIONS.map((mission) => {
       const isCompleted = missionProgress[mission.id]?.completed;
       return {
         type: 'Feature',
@@ -1036,8 +1067,8 @@ function updateExploreScreen() {
   // Update breadcrumb
   const breadcrumbEl = document.getElementById('explore-breadcrumb');
   if (breadcrumbEl) {
-    const missionIndex = MISSIONS.findIndex(m => m.id === currentMissionId) + 1;
-    breadcrumbEl.textContent = `MISSION ${missionIndex} / ${MISSIONS.length}`;
+    const missionIndex = PUBLISHED_MISSIONS.findIndex(m => m.id === currentMissionId) + 1;
+    breadcrumbEl.textContent = `MISSION ${missionIndex} / ${PUBLISHED_MISSIONS.length}`;
   }
 
   // Update target marker on map based on mission location
@@ -1112,7 +1143,7 @@ function showAllHints() {
 }
 
 function simulateDebugPosition(provider, distanceMeters) {
-  const mission = MISSIONS.find((item) => item.id === currentMissionId) || MISSIONS[0];
+  const mission = MISSIONS.find((item) => item.id === currentMissionId) || PUBLISHED_MISSIONS[0];
   const longitudeOffset = distanceMeters / (111320 * Math.cos(mission.targetLocation.latitude * Math.PI / 180));
   currentPosition.latitude = mission.targetLocation.latitude;
   currentPosition.longitude = mission.targetLocation.longitude + longitudeOffset;
@@ -1131,7 +1162,7 @@ function simulateDebugPosition(provider, distanceMeters) {
 function setDebugPositionFromMap(lat, lng) {
   if (!debugConfig.debugMode || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-  const mission = MISSIONS.find((item) => item.id === currentMissionId) || MISSIONS[0];
+  const mission = MISSIONS.find((item) => item.id === currentMissionId) || PUBLISHED_MISSIONS[0];
   currentPosition.latitude = lat;
   currentPosition.longitude = lng;
   currentDistance = calculateDistance(lat, lng, mission.targetLocation.latitude, mission.targetLocation.longitude);

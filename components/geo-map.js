@@ -74,7 +74,7 @@
     }
 
     var opts = options || {};
-    var center = opts.center || { lat: 36.7823, lng: 137.1105 };
+    var center = opts.center || { lat: 37.5333, lng: 138.8710 };
     var map = new global.maplibregl.Map({
       container: container,
       center: [center.lng, center.lat],
