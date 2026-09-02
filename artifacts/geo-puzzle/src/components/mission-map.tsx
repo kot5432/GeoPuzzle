@@ -114,7 +114,6 @@ export function MissionMap(props: MissionMapProps) {
 
   const interactive = 'interactive' in props ? (props.interactive ?? true) : true;
   const className = 'className' in props ? (props.className ?? '') : '';
-  const opacity = 'opacity' in props ? (props.opacity ?? 1) : 1;
 
   const singleMission = useMemo<Mission | null>(() => (mode === 'single' ? props.mission : null), [mode, props]);
 
@@ -353,5 +352,5 @@ export function MissionMap(props: MissionMapProps) {
     }
   }, [mode, props]);
 
-  return <div ref={containerRef} className={`h-full w-full ${className}`} style={{ opacity }} role="region" aria-label={mode === 'region' ? '地域探索地図' : '探索地図'} data-testid="mission-map" />;
+  return <div ref={containerRef} className={`h-full w-full ${className}`} style={{ opacity: props.mode === 'single' && 'opacity' in props ? props.opacity : 1 }} role="region" aria-label={mode === 'region' ? '地域探索地図' : '探索地図'} data-testid="mission-map" />;
 }
