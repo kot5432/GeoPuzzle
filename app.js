@@ -259,16 +259,25 @@ async function syncPositionToMaps() {
 
 async function syncTargetsToHomeMap() {
   const [hMap] = await Promise.all([homeMap || Promise.resolve(null)]);
-  if (!hMap || !hMap.setTargets) return;
-  const palette = ['#E05C35', '#F4C542', '#7E57C2'];
-  hMap.setTargets(MISSIONS.map((m, i) => ({
-    id: m.id,
-    position: { lat: m.targetLocation.latitude, lng: m.targetLocation.longitude },
-    radius: m.targetLocation.tolerance || 0.5,
-    color: palette[i % palette.length],
-    title: m.title,
-    fillOpacity: 0.15,
-  })));
+  if (!hMap) return;
+
+  if (hMap.setTargets) hMap.setTargets([]);
+
+  const focusPosition = currentPosition?.latitude && currentPosition?.longitude
+    ? { lat: currentPosition.latitude, lng: currentPosition.longitude }
+    : MAP_CONFIG.center;
+
+  if (hMap.panTo) hMap.panTo(focusPosition);
+
+  if (hMap.setExplorationArea) {
+    hMap.setExplorationArea({
+      center: focusPosition,
+      radius: 80,
+      color: '#F9A43A',
+      fillOpacity: 0.24,
+      strokeOpacity: 0.9,
+    });
+  }
 }
 
 async function syncTargetsToExploreMap() {

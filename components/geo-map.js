@@ -64,7 +64,7 @@
     });
     map.addControl(new global.maplibregl.NavigationControl(), 'top-right');
 
-    var state = { userMarker: null, targets: Object.create(null), centerLocked: true };
+    var state = { userMarker: null, targets: Object.create(null), centerLocked: true, explorationArea: null };
     var pendingUser = null;
     var pendingTargets = [];
 
@@ -75,6 +75,63 @@
         map.addSource('geo-user-accuracy', { type: 'geojson', data: data });
         map.addLayer({ id: 'geo-user-accuracy', type: 'circle', source: 'geo-user-accuracy', paint: { 'circle-radius': 28, 'circle-color': color, 'circle-opacity': 0.18, 'circle-stroke-color': color, 'circle-stroke-opacity': 0.7, 'circle-stroke-width': 2 } });
       } else source.setData(data);
+    }
+
+    function updateExplorationArea(config) {
+      if (!config || typeof config.center !== 'object') {
+        if (map.getLayer('geo-exploration-area')) map.removeLayer('geo-exploration-area');
+        if (map.getSource('geo-exploration-area')) map.removeSource('geo-exploration-area');
+        return;
+      }
+
+      var areaConfig = config || {};
+      var center = [areaConfig.center.lng, areaConfig.center.lat];
+      var radius = typeof areaConfig.radius === 'number' ? areaConfig.radius : 80;
+      var color = areaConfig.color || '#F9A43A';
+      var fillOpacity = typeof areaConfig.fillOpacity === 'number' ? areaConfig.fillOpacity : 0.18;
+      var strokeOpacity = typeof areaConfig.strokeOpacity === 'number' ? areaConfig.strokeOpacity : 0.8;
+      var areaData = {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: center },
+        properties: {}
+      };
+
+      var source = map.getSource('geo-exploration-area');
+      if (!source) {
+        map.addSource('geo-exploration-area', { type: 'geojson', data: areaData });
+        map.addLayer({
+          id: 'geo-exploration-area',
+          type: 'circle',
+          source: 'geo-exploration-area',
+          paint: {
+            'circle-radius': radius,
+            'circle-color': color,
+            'circle-opacity': fillOpacity,
+            'circle-blur': 0.6,
+            'circle-stroke-color': color,
+            'circle-stroke-opacity': strokeOpacity,
+            'circle-stroke-width': 2,
+          }
+        });
+      } else {
+        source.setData(areaData);
+        var layer = map.getLayer('geo-exploration-area');
+        if (layer) {
+          map.setPaintProperty('geo-exploration-area', 'circle-radius', radius);
+          map.setPaintProperty('geo-exploration-area', 'circle-color', color);
+          map.setPaintProperty('geo-exploration-area', 'circle-opacity', fillOpacity);
+          map.setPaintProperty('geo-exploration-area', 'circle-stroke-color', color);
+          map.setPaintProperty('geo-exploration-area', 'circle-stroke-opacity', strokeOpacity);
+        }
+      }
+
+      state.explorationArea = areaConfig;
+    }
+
+    function clearExplorationArea() {
+      state.explorationArea = null;
+      if (map.getLayer('geo-exploration-area')) map.removeLayer('geo-exploration-area');
+      if (map.getSource('geo-exploration-area')) map.removeSource('geo-exploration-area');
     }
 
     function removeUserPosition() {
@@ -142,8 +199,17 @@
       if (map.isStyleLoaded()) renderTargets();
     }
 
+    function setExplorationArea(config) {
+      if (!map.isStyleLoaded()) {
+        state.explorationArea = config || null;
+        return;
+      }
+      updateExplorationArea(config);
+    }
+
     map.on('load', function () {
       if (pendingUser) setUserPosition(pendingUser);
+      if (state.explorationArea) updateExplorationArea(state.explorationArea);
       renderTargets();
     });
 
@@ -151,10 +217,12 @@
       setUserPosition: setUserPosition,
       removeUserPosition: removeUserPosition,
       setTargets: setTargets,
+      setExplorationArea: setExplorationArea,
+      clearExplorationArea: clearExplorationArea,
       setCenterLocked: function (locked) { state.centerLocked = !!locked; },
       panTo: function (pos) { if (pos && typeof pos.lat === 'number') map.easeTo({ center: [pos.lng, pos.lat] }); },
       getNativeMap: function () { return map; },
-      destroy: function () { Object.keys(state.targets).forEach(removeTarget); removeUserPosition(); map.remove(); delete container._geoMap; },
+      destroy: function () { Object.keys(state.targets).forEach(removeTarget); removeUserPosition(); clearExplorationArea(); map.remove(); delete container._geoMap; },
     };
     container._geoMap = instance;
     var fallbackActivated = false;
