@@ -1385,47 +1385,57 @@ function updateNavigationUI(distance, mode) {
   const directionEl = document.getElementById('explore-direction');
   const guidanceEl = document.getElementById('explore-guidance');
   const radarOverlay = document.getElementById('radar-overlay');
-  const radarTarget = document.getElementById('radar-target');
-  const radarDistance = document.getElementById('radar-distance');
+  const clueDistanceSection = document.querySelector('.clue-distance-section');
 
   if (!distEl) return;
 
-  // Update distance display
-  distEl.textContent = Math.round(distance);
+  const roundedDistance = Math.round(distance);
+  const directionText = getDirectionText();
 
-  // Update UI based on mode
   switch (mode) {
     case NAV_MODES.DIRECTION:
-      if (directionEl) directionEl.textContent = '方向を確認';
-      if (guidanceEl) guidanceEl.textContent = '目標方向へ進もう';
-      // Show radar
+      distEl.textContent = roundedDistance;
+      if (directionEl) directionEl.textContent = directionText ? `${directionText} へ進む` : '方向を確認';
+      if (guidanceEl) guidanceEl.textContent = '目的地の方向へ進もう';
       if (radarOverlay) radarOverlay.style.display = 'block';
+      if (clueDistanceSection) clueDistanceSection.classList.remove('is-searching', 'is-close');
       updateRadar(distance);
       break;
     case NAV_MODES.PRECISE:
-      if (directionEl) directionEl.textContent = getDirectionText();
-      if (guidanceEl) guidanceEl.textContent = '正確な距離で進もう';
-      // Show radar with precise direction
+      distEl.textContent = roundedDistance;
+      if (directionEl) directionEl.textContent = directionText ? `${directionText} へ近づいています` : '方向を確認';
+      if (guidanceEl) guidanceEl.textContent = '近づいています。正しい方向に進んでいます';
       if (radarOverlay) radarOverlay.style.display = 'block';
+      if (clueDistanceSection) clueDistanceSection.classList.remove('is-searching', 'is-close');
       updateRadar(distance);
       break;
     case NAV_MODES.EXPLORATION:
-      if (directionEl) directionEl.textContent = '近くにあります';
-      if (guidanceEl) guidanceEl.textContent = 'この周辺を探してみよう';
-      // Hide radar, focus on exploration
+      distEl.textContent = '—';
+      if (directionEl) directionEl.textContent = 'この近くにあります';
+      if (guidanceEl) guidanceEl.textContent = '周囲を見渡して、探してみよう';
       if (radarOverlay) radarOverlay.style.display = 'none';
+      if (clueDistanceSection) {
+        clueDistanceSection.classList.add('is-searching');
+        clueDistanceSection.classList.remove('is-close');
+      }
       break;
     case NAV_MODES.FINAL:
-      if (directionEl) directionEl.textContent = '周囲を見渡そう';
-      if (guidanceEl) guidanceEl.textContent = '最後の数mを自分で探そう';
-      // Hide radar for final exploration
+      distEl.textContent = '—';
+      if (directionEl) directionEl.textContent = 'かなり近いです';
+      if (guidanceEl) guidanceEl.textContent = '最後の数mを自分で探してみよう';
       if (radarOverlay) radarOverlay.style.display = 'none';
+      if (clueDistanceSection) {
+        clueDistanceSection.classList.add('is-searching', 'is-close');
+      }
       break;
     case NAV_MODES.QZSS:
-      if (directionEl) directionEl.textContent = 'QZSS判定中';
-      if (guidanceEl) guidanceEl.textContent = 'この場所を探してみよう';
-      // Hide radar for QZSS precision
+      distEl.textContent = '—';
+      if (directionEl) directionEl.textContent = 'ここにあります';
+      if (guidanceEl) guidanceEl.textContent = '周囲を見て、見つけてみよう';
       if (radarOverlay) radarOverlay.style.display = 'none';
+      if (clueDistanceSection) {
+        clueDistanceSection.classList.add('is-searching', 'is-close');
+      }
       break;
   }
 }

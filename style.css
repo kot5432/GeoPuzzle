@@ -1247,6 +1247,15 @@ body {
 .clue-distance-section {
   border-top: 1px solid rgba(255,255,255,0.08);
   padding-top: 18px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.clue-distance-section.is-searching {
+  opacity: 0.9;
+}
+
+.clue-distance-section.is-close .clue-distance-value {
+  color: #ffd166;
 }
 
 .clue-distance-label {
