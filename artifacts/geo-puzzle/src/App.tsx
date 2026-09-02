@@ -1025,7 +1025,7 @@ function NavigatePage({ mission }: { mission: Mission }) {
               <button type="button" onClick={() => setHintModalOpen(false)} className="shrink-0 rounded-lg p-2 text-[#668078] hover:bg-[#e7e8de]"><CircleHelp size={18} /></button>
             </div>
             <div className="mb-6 rounded-2xl bg-[#e8f4ea] p-4">
-              <p className="text-sm leading-7 text-[#20373f]">{mission.hints[justRevealedIndex!]}</p>
+              <p className="text-sm leading-7 text-[#20373f]">{justRevealedIndex !== null ? mission.hints[justRevealedIndex] : ''}</p>
             </div>
             <div className="space-y-3">
               {progress.hintsRevealed < mission.hints.length && justRevealedIndex === null && (
