@@ -374,6 +374,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const loginSecondaryBtn = document.getElementById('login-secondary-btn');
+  if (loginSecondaryBtn) {
+    loginSecondaryBtn.addEventListener('click', () => {
+      loginScreen.classList.add('hidden');
+      mainApp.classList.remove('hidden');
+      showScreen('home');
+    });
+  }
+
   // Nav links
   NAV_IDS.forEach((navId) => {
     const btn = document.getElementById(navId);
