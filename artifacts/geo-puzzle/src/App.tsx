@@ -1,81 +1,41 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Compass, Camera, Check, ChevronRight, CircleHelp, Clock3, Crosshair, Eye, Github, History, Home, Info, Instagram, KeyRound, LockKeyhole, LogOut, Mail, MapPinned, Menu, Navigation, PartyPopper, Route as RouteIcon, ShieldCheck, Sparkles, Target, UserRound, X, type LucideIcon } from 'lucide-react';
+import { Compass, Camera, Check, ChevronRight, CircleHelp, Clock3, Crosshair, Eye, Github, History, Home, Info, KeyRound, Lightbulb, LockKeyhole, LogOut, Mail, MapPinned, Menu, Navigation, Route as RouteIcon, ShieldCheck, Sparkles, Stamp, Target, UserRound, type LucideIcon } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { MissionMap } from '@/components/mission-map';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { findMission, missionLabel, publishedMissions, type Mission } from '@/data/missions';
+import { bearingInDegrees, compassLabel, distanceInMeters, distanceUnit, fixFromPosition, formatDistance, geolocationErrorMessage, simulatedFix, stageFor, stageMessage, type Fix } from '@/lib/geo';
+import { SESSION_KEY, USERS_KEY, emptyProgress, formatDate, readActiveMissionId, readAllProgress, readProgress, readStorage, saveActiveMissionId, saveProgress, type MissionProgress, type Session, type StoredUser } from '@/lib/storage';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 
 const queryClient = new QueryClient();
-const SESSION_KEY = 'geopuzzle-session';
-const USERS_KEY = 'geopuzzle-users';
-const MISSION_KEY = 'geopuzzle-mission';
+const DEMO_MODE = import.meta.env.DEV || new URLSearchParams(window.location.search).has('demo');
 
-type Session = { email: string; displayName: string; joinedAt: string };
-type MissionState = {
-  distance: number | null;
-  verified: boolean;
-  captured: boolean;
-  completed: boolean;
-  latitude?: number;
-  longitude?: number;
-  accuracy?: number;
-  photo?: string;
-};
-
-const destination = {
-  name: '神楽坂の赤城神社',
-  romanized: 'Akagi Shrine, Kagurazaka',
-  city: '東京都 新宿区',
-  clue: '石段の先で、街の喧騒が一度だけ消える場所。',
-  detail: '隈研吾の建築と、静かな境内。神楽坂の路地から探してみよう。',
-  walk: '徒歩 8分',
-  distance: '0.6 km',
-  latitude: 35.703380,
-  longitude: 139.736520,
-  discoveryRadius: 8,
-  maximumAccuracy: 20,
-  color: '#d87351',
-};
-
-function distanceInMeters(latitude: number, longitude: number, targetLatitude: number, targetLongitude: number) {
-  const earthRadius = 6_371_000;
-  const latitudeDelta = ((targetLatitude - latitude) * Math.PI) / 180;
-  const longitudeDelta = ((targetLongitude - longitude) * Math.PI) / 180;
-  const a =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos((latitude * Math.PI) / 180) *
-      Math.cos((targetLatitude * Math.PI) / 180) *
-      Math.sin(longitudeDelta / 2) ** 2;
-  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+function useActiveMission() {
+  const [mission, setMissionState] = useState<Mission>(() => findMission(readActiveMissionId()));
+  const setMission = (next: Mission) => {
+    saveActiveMissionId(next.id);
+    setMissionState(next);
+  };
+  return { mission, setMission };
 }
 
-function formatDistance(distance: number | null) {
-  if (distance === null) return '—';
-  return distance < 1000 ? `${Math.round(distance)}` : `${(distance / 1000).toFixed(1)}`;
-}
-
-function geolocationErrorMessage(error: GeolocationPositionError) {
-  if (error.code === error.PERMISSION_DENIED) return '位置情報の利用が許可されていません。ブラウザの設定から許可してください。';
-  if (error.code === error.POSITION_UNAVAILABLE) return '現在地を取得できませんでした。空の見える屋外で再試行してください。';
-  if (error.code === error.TIMEOUT) return '測位に時間がかかっています。もう一度現在地を更新してください。';
-  return '現在地を取得できませんでした。';
-}
-
-const readStorage = <T,>(key: string, fallback: T): T => {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? (JSON.parse(value) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const initialMission: MissionState = { distance: null, verified: false, captured: false, completed: false };
-
-function saveMission(next: MissionState) {
-  localStorage.setItem(MISSION_KEY, JSON.stringify(next));
+function useProgress(missionId: string) {
+  const [progress, setProgressState] = useState<MissionProgress>(() => readProgress(missionId));
+  useEffect(() => setProgressState(readProgress(missionId)), [missionId]);
+  const update = useCallback(
+    (patch: Partial<MissionProgress> | ((current: MissionProgress) => MissionProgress)) => {
+      const current = readProgress(missionId);
+      const next = typeof patch === 'function' ? patch(current) : { ...current, ...patch };
+      saveProgress(missionId, next);
+      setProgressState(next);
+    },
+    [missionId],
+  );
+  return [progress, update] as const;
 }
 
 function useSession() {
@@ -89,6 +49,9 @@ function useSession() {
 
 function App() {
   const auth = useSession();
+  const [location] = useLocation();
+  // 画面遷移のたびに localStorage から選択中ミッションを読み直す
+  const mission = useMemo(() => findMission(readActiveMissionId()), [location]);
   useEffect(() => {
     document.title = 'GeoPuzzle — 旅先の謎を解く';
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]') ?? document.createElement('link');
@@ -108,9 +71,10 @@ function App() {
           <RoutedErrorBoundary>
             <Switch>
               <Route path="/auth"><AuthPage onSignedIn={auth.setSession} /></Route>
-              <Route path="/navigate"><Protected session={auth.session}><NavigatePage /></Protected></Route>
-              <Route path="/capture"><Protected session={auth.session}><CapturePage /></Protected></Route>
-              <Route path="/complete"><Protected session={auth.session}><CompletePage /></Protected></Route>
+              <Route path="/navigate"><Protected session={auth.session}><NavigatePage mission={mission} /></Protected></Route>
+              <Route path="/discover"><Protected session={auth.session}><DiscoverPage mission={mission} /></Protected></Route>
+              <Route path="/capture"><Protected session={auth.session}><CapturePage mission={mission} /></Protected></Route>
+              <Route path="/complete"><Protected session={auth.session}><CompletePage mission={mission} /></Protected></Route>
               <Route path="/profile"><Protected session={auth.session}><ProfilePage session={auth.session} onSignOut={auth.signOut} /></Protected></Route>
               <Route path="/"><AppShell session={auth.session} onSignOut={auth.signOut}><HomePage session={auth.session} /></AppShell></Route>
               <Route component={NotFound} />
@@ -176,42 +140,6 @@ function AppShell({ session, onSignOut, children }: { session: Session | null; o
   );
 }
 
-function HomePage({ session }: { session: Session | null }) {
-  const [, setLocation] = useLocation();
-  const [mission] = useState(() => readStorage<MissionState>(MISSION_KEY, initialMission));
-  const greeting = session ? `${session.displayName}さん、` : '今日の旅に、';
-  return (
-    <main className="mx-auto max-w-[1240px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12">
-      <section className="grid items-stretch gap-6 lg:grid-cols-[1.12fr_.88fr]">
-        <div className="relative min-h-[425px] overflow-hidden rounded-[28px] bg-[#173640] p-7 text-[#f6f0e2] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:p-10">
-          <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-[#f1c66b]/20" /><div className="absolute -right-8 -top-12 h-48 w-48 rounded-full border border-[#f1c66b]/20" />
-          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#122c34] to-transparent" />
-          <div className="relative z-10 flex h-full flex-col justify-between">
-            <div className="animate-rise"><div className="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-[.24em] text-[#f1c66b]"><Sparkles size={15} /> mission 04 / 12</div><p className="mb-3 text-sm text-[#b2c2b4]">{greeting}次のランドマークを探そう。</p><h1 className="max-w-[560px] font-display text-4xl font-extrabold leading-[1.04] tracking-[-.04em] sm:text-6xl">街の中に、<br /><span className="text-[#f1c66b]">まだ知らない</span><br />景色がある。</h1></div>
-            <div className="animate-rise delay-2 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="mb-1 font-mono text-[10px] uppercase tracking-[.2em] text-[#91aaa0]">today's clue</p><p className="max-w-[340px] text-sm leading-relaxed text-[#d8e0d5]">「石段の先で、街の喧騒が一度だけ消える場所。」</p></div><button type="button" onClick={() => setLocation(session ? '/navigate' : '/auth')} className="group flex shrink-0 items-center justify-between gap-5 rounded-full bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[4px_4px_0_#a74e3b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-start-mission"><span>{session ? '探索を再開' : '旅をはじめる'}</span><ChevronRight size={18} className="transition-transform group-hover:translate-x-1" /></button></div>
-          </div>
-        </div>
-        <MapPreview />
-      </section>
-      <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <StatCard icon={Target} number={mission.completed ? '04' : '03'} label="見つけた場所" accent="teal" />
-        <StatCard icon={RouteIcon} number="12.8" label="歩いた距離 / km" accent="gold" />
-        <StatCard icon={Clock3} number="02:41" label="今月の探索時間" accent="coral" />
-      </section>
-      <section className="mt-12 grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
-        <div><p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.24em] text-[#668078]">how it works</p><h2 className="font-display text-3xl font-extrabold leading-tight tracking-[-.03em]">4つの手がかりで、<br />街を読み解く。</h2><p className="mt-4 max-w-sm text-sm leading-7 text-[#65756e]">答えを検索するのではなく、足で近づき、目で確かめる。GeoPuzzleは旅を小さな冒険に変えます。</p></div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <StepCard index="01" title="手がかりを読む" text="場所を示す短い謎を受け取る。" icon={Eye} /><StepCard index="02" title="歩いて近づく" text="地図を頼りに、答えのそばへ。" icon={Navigation} /><StepCard index="03" title="現地で証明する" text="範囲内に入ると、謎がほどける。" icon={Crosshair} /><StepCard index="04" title="記念に残す" text="一枚の写真で旅を完了。" icon={Camera} />
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function MapPreview() {
-  return <div className="relative min-h-[425px] overflow-hidden rounded-[28px] border border-[#cfd8cb] bg-[#dbe5d8] shadow-[0_14px_38px_rgba(31,53,62,.08)]"><div className="map-grid absolute inset-0" /><div className="map-water -right-12 top-8 h-56 w-48 rotate-12 opacity-80" /><div className="map-water -bottom-16 -left-16 h-48 w-72 -rotate-12 opacity-50" /><div className="map-road left-[12%] top-[34%] w-[78%] rotate-[22deg]" /><div className="map-road left-[18%] top-[65%] w-[70%] rotate-[-14deg]" /><div className="map-road left-[42%] top-[10%] w-[64%] rotate-[78deg] opacity-40" /><div className="absolute left-[18%] top-[20%] rounded-full bg-[#f4f0e6]/75 px-3 py-1 font-mono text-[9px] font-bold tracking-[.14em] text-[#618073]">神楽坂</div><div className="absolute left-[54%] top-[46%] grid h-5 w-5 place-items-center rounded-full bg-[#e47750] text-white map-pin"><span className="h-1.5 w-1.5 rounded-full bg-white" /></div><div className="absolute bottom-5 left-5 right-5 flex items-end justify-between"><div className="rounded-2xl bg-[#f4f0e6]/90 p-4 backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#668078]">hidden landmark</p><p className="mt-1 font-display text-lg font-bold text-[#20373f]">神楽坂の赤城神社</p></div><div className="grid h-11 w-11 place-items-center rounded-full bg-[#173640] text-[#f1c66b]"><Compass size={20} /></div></div></div>;
-}
-
 function StatCard({ icon: Icon, number, label, accent }: { icon: LucideIcon; number: string; label: string; accent: string }) {
   const colors: Record<string, string> = { teal: 'bg-[#d7e7df] text-[#1e7471]', gold: 'bg-[#f2e4bc] text-[#a7761f]', coral: 'bg-[#f4ddd3] text-[#bc5c43]' };
   return <div className="flex items-center gap-4 rounded-2xl border border-[#dedfd4] bg-[#f9f7f0] p-4"><div className={`grid h-11 w-11 place-items-center rounded-xl ${colors[accent]}`}><Icon size={20} /></div><div><p className="font-display text-2xl font-extrabold">{number}</p><p className="text-xs text-[#718078]">{label}</p></div></div>;
@@ -239,7 +167,7 @@ function AuthPage({ onSignedIn }: { onSignedIn: (session: Session) => void }) {
     if (!name.trim() && mode === 'signup') return setError('表示名を入力してください。');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return setError('メールアドレスの形式を確認してください。');
     if (password.length < 8) return setError('パスワードは8文字以上で入力してください。');
-    const users = readStorage<{ email: string; password: string; displayName: string }[]>(USERS_KEY, []);
+    const users = readStorage<StoredUser[]>(USERS_KEY, []);
     const found = users.find((user) => user.email === normalized);
     if (mode === 'signin' && (!found || found.password !== password)) return setError('メールアドレスまたはパスワードが一致しません。');
     if (mode === 'signup' && found) return setError('このメールアドレスはすでに登録されています。');
@@ -262,97 +190,226 @@ function Field({ label, icon: Icon, value, onChange, type, autoComplete, placeho
   return <label className="block"><span className="mb-2 block text-xs font-bold text-[#3e5754]">{label}</span><span className="relative block"><Icon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#789087]" /><input required type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} placeholder={placeholder} data-testid={testId} className="w-full rounded-xl border border-[#d3d8cc] bg-[#fbf9f3] py-3.5 pl-11 pr-4 text-sm text-[#20373f] outline-none transition-colors placeholder:text-[#a1aaa0] focus:border-[#1e7471] focus:ring-2 focus:ring-[#1e7471]/15" /></span></label>;
 }
 
-function NavigatePage() {
+function HomePage({ session }: { session: Session | null }) {
   const [, setLocation] = useLocation();
-  const [mission, setMission] = useState<MissionState>(() => readStorage(MISSION_KEY, initialMission));
+  const { mission, setMission } = useActiveMission();
+  const allProgress = readAllProgress();
+  const progress = allProgress[mission.id] ?? emptyProgress;
+  const discoveredCount = Object.values(allProgress).filter((entry) => entry.discovered).length;
+  const greeting = session ? `${session.displayName}さん、` : '今日の旅に、';
+  const start = () => setLocation(session ? (progress.discovered && !progress.completed ? '/discover' : '/navigate') : '/auth');
+  return (
+    <main className="mx-auto max-w-[1240px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12">
+      <section className="grid items-stretch gap-6 lg:grid-cols-[1.12fr_.88fr]">
+        <div className="relative min-h-[425px] overflow-hidden rounded-[28px] bg-[#173640] p-7 text-[#f6f0e2] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:p-10">
+          <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-[#f1c66b]/20" /><div className="absolute -right-8 -top-12 h-48 w-48 rounded-full border border-[#f1c66b]/20" />
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#122c34] to-transparent" />
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <div className="animate-rise"><div className="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-[.24em] text-[#f1c66b]"><Sparkles size={15} /> {missionLabel(mission)}</div><p className="mb-3 text-sm text-[#b2c2b4]">{greeting}次の一点を探そう。</p><h1 className="max-w-[560px] font-display text-4xl font-extrabold leading-[1.04] tracking-[-.04em] sm:text-6xl">街の中に、<br /><span className="text-[#f1c66b]">まだ知らない</span><br />景色がある。</h1></div>
+            <div className="animate-rise delay-2 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="mb-1 font-mono text-[10px] uppercase tracking-[.2em] text-[#91aaa0]">today's clue / {mission.area}</p><p className="max-w-[340px] text-sm leading-relaxed text-[#d8e0d5]">「{mission.clue}」</p></div><button type="button" onClick={start} className="group flex shrink-0 items-center justify-between gap-5 rounded-full bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[4px_4px_0_#a74e3b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-start-mission"><span>{!session ? '旅をはじめる' : progress.completed ? 'もう一度歩く' : progress.discovered ? '発見を確認する' : '探索をはじめる'}</span><ChevronRight size={18} className="transition-transform group-hover:translate-x-1" /></button></div>
+          </div>
+        </div>
+        <div className="relative min-h-[425px] overflow-hidden rounded-[28px] border border-[#cfd8cb] shadow-[0_14px_38px_rgba(31,53,62,.08)]">
+          <MissionMap mission={mission} fix={null} interactive={false} />
+          <div className="pointer-events-none absolute bottom-5 left-5 right-5 z-[500] flex items-end justify-between"><div className="rounded-2xl bg-[#f4f0e6]/90 p-4 backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#668078]">search area</p><p className="mt-1 font-display text-lg font-bold text-[#20373f]">{mission.area}</p><p className="text-xs text-[#718078]">{mission.city}</p></div><div className="grid h-11 w-11 place-items-center rounded-full bg-[#173640] text-[#f1c66b]"><Compass size={20} /></div></div>
+        </div>
+      </section>
+      <section className="mt-8 grid gap-4 sm:grid-cols-3">
+        <StatCard icon={Target} number={String(discoveredCount).padStart(2, '0')} label="見つけた一点" accent="teal" />
+        <StatCard icon={RouteIcon} number={String(publishedMissions.length).padStart(2, '0')} label="公開中のミッション" accent="gold" />
+        <StatCard icon={Clock3} number={`${mission.estimatedMinutes}分`} label="このミッションの目安" accent="coral" />
+      </section>
+      <section className="mt-12">
+        <div className="flex items-end justify-between"><div><p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.24em] text-[#668078]">missions</p><h2 className="font-display text-3xl font-extrabold leading-tight tracking-[-.03em]">ミッションを選ぶ。</h2></div></div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {publishedMissions.map((candidate, index) => {
+            const state = allProgress[candidate.id] ?? emptyProgress;
+            const active = candidate.id === mission.id;
+            return (
+              <button key={candidate.id} type="button" onClick={() => setMission(candidate)} data-testid={`button-select-mission-${candidate.id}`} className={`rounded-2xl border p-5 text-left transition-transform hover:-translate-y-1 ${active ? 'border-[#1e7471] bg-[#e4efe8]' : 'border-[#dedfd4] bg-[#f9f7f0]'}`}>
+                <div className="flex items-center justify-between"><span className="font-mono text-[10px] text-[#dd7552]">{String(index + 1).padStart(2, '0')} / {candidate.city}</span>{state.discovered ? <span className="rounded-full bg-[#d9e9dd] px-2.5 py-1 text-[10px] font-bold text-[#1e7471]">発見済み</span> : <span className="rounded-full bg-[#eee7d2] px-2.5 py-1 text-[10px] font-bold text-[#a7761f]">{candidate.difficulty === 'easy' ? 'やさしい' : candidate.difficulty === 'hard' ? 'むずかしい' : 'ふつう'}</span>}</div>
+                <h3 className="mt-5 font-display text-lg font-bold">{candidate.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-[#718078]">「{candidate.clue}」</p>
+                <p className="mt-3 text-xs text-[#8b968e]">{candidate.area} · 目安 {candidate.estimatedMinutes}分 · 判定 {candidate.discoveryRadius}m</p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      <section className="mt-12 grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
+        <div><p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.24em] text-[#668078]">how it works</p><h2 className="font-display text-3xl font-extrabold leading-tight tracking-[-.03em]">4つのステップで、<br />街の一点を見つける。</h2><p className="mt-4 max-w-sm text-sm leading-7 text-[#65756e]">答えを検索するのではなく、足で近づき、目で確かめる。GeoPuzzleは旅を小さな冒険に変えます。</p></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <StepCard index="01" title="手がかりを読む" text="場所を示す短い謎を受け取る。" icon={Eye} /><StepCard index="02" title="歩いて近づく" text="地図と現在地を頼りに、答えのそばへ。" icon={Navigation} /><StepCard index="03" title="一点に立つ" text="判定範囲に入ると、発見が解放される。" icon={Crosshair} /><StepCard index="04" title="物語を受け取る" text="その場所だけの話とスタンプを記録する。" icon={Stamp} />
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function shellProps(setLocation: (path: string) => void) {
+  return {
+    session: readStorage<Session | null>(SESSION_KEY, null),
+    onSignOut: () => {
+      localStorage.removeItem(SESSION_KEY);
+      setLocation('/auth');
+    },
+  };
+}
+
+function NavigatePage({ mission }: { mission: Mission }) {
+  const [, setLocation] = useLocation();
+  const [progress, updateProgress] = useProgress(mission.id);
+  const [fix, setFix] = useState<Fix | null>(null);
   const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState('');
-  const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [locationError, setLocationError] = useState('');
+  const [simulating, setSimulating] = useState(false);
+  const simulatedDistance = useRef(420);
 
-  const handlePosition = (nextPosition: GeolocationPosition) => {
-    const { latitude, longitude, accuracy } = nextPosition.coords;
-    const distance = distanceInMeters(latitude, longitude, destination.latitude, destination.longitude);
-    setPosition(nextPosition);
-    setMission((current) => {
-      const next = {
-        ...current,
-        distance,
-        latitude,
-        longitude,
-        accuracy,
-      };
-      saveMission(next);
-      return next;
-    });
-    setLocationError('');
-    setLocating(false);
-  };
+  const distance = fix ? distanceInMeters(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
+  const bearing = fix ? bearingInDegrees(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
+  const stage = stageFor(distance, mission);
+  const accuracyOk = fix ? fix.accuracy <= mission.maximumAccuracy : false;
+  const canDiscover = stage === 'arrived' && accuracyOk;
 
-  const handleLocationError = (error: GeolocationPositionError) => {
-    setLocating(false);
-    setLocationError(geolocationErrorMessage(error));
-  };
+  const applyFix = useCallback(
+    (next: Fix) => {
+      setFix(next);
+      setLocationError('');
+      setLocating(false);
+      updateProgress({ lastDistance: distanceInMeters(next.latitude, next.longitude, mission.latitude, mission.longitude), lastAccuracy: next.accuracy });
+    },
+    [mission.latitude, mission.longitude, updateProgress],
+  );
 
   useEffect(() => {
+    if (simulating) return;
     if (!navigator.geolocation) {
       setLocationError('このブラウザは位置情報に対応していません。');
       return;
     }
-
     setLocating(true);
-    const watchId = navigator.geolocation.watchPosition(handlePosition, handleLocationError, {
-      enableHighAccuracy: true,
-      maximumAge: 5_000,
-      timeout: 20_000,
-    });
-
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => applyFix(fixFromPosition(position)),
+      (error) => {
+        setLocating(false);
+        setLocationError(geolocationErrorMessage(error));
+      },
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
+    );
     return () => navigator.geolocation.clearWatch(watchId);
-  }, []);
+  }, [applyFix, simulating]);
 
   const locate = () => {
-    if (!navigator.geolocation) {
-      setLocationError('このブラウザは位置情報に対応していません。');
+    setMessage('');
+    if (simulating) {
+      simulatedDistance.current = Math.max(2, simulatedDistance.current * 0.45);
+      applyFix(simulatedFix(mission, simulatedDistance.current, 8));
       return;
     }
-
+    if (!navigator.geolocation) return setLocationError('このブラウザは位置情報に対応していません。');
     setLocating(true);
-    setMessage('');
     navigator.geolocation.getCurrentPosition(
-      (nextPosition) => {
-        handlePosition(nextPosition);
-        setMessage(`高精度測位を更新しました。測位誤差は約${Math.round(nextPosition.coords.accuracy)}mです。`);
+      (position) => {
+        applyFix(fixFromPosition(position));
+        setMessage(`現在地を更新しました。測位誤差は約${Math.round(position.coords.accuracy)}mです。`);
       },
-      handleLocationError,
+      (error) => {
+        setLocating(false);
+        setLocationError(geolocationErrorMessage(error));
+      },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
     );
   };
 
-  const verify = () => {
-    if (!position || mission.distance === null) return setMessage('まず現在地を取得してください。');
-    if (mission.accuracy && mission.accuracy > destination.maximumAccuracy) {
-      return setMessage(`測位誤差が約${Math.round(mission.accuracy)}mあります。もう少し空の見える場所で確認してください。`);
-    }
-    if (mission.distance > destination.discoveryRadius) {
-      return setMessage(`発見地点まであと${Math.round(mission.distance)}mです。もう少し近づいてみましょう。`);
-    }
-    const next = { ...mission, verified: true };
-    setMission(next); saveMission(next); setLocation('/capture');
+  const startSimulation = () => {
+    setSimulating(true);
+    setLocationError('');
+    simulatedDistance.current = 420;
+    applyFix(simulatedFix(mission, 420, 12));
+    setMessage('シミュレーションモード：「現在地を更新」を押すたびに目的地へ近づきます。');
   };
- return <AppShell session={readStorage<Session | null>(SESSION_KEY, null)} onSignOut={() => { localStorage.removeItem(SESSION_KEY); setLocation('/auth'); }}><main className="mx-auto max-w-[1240px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12"><div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">mission 04 / navigate</p><h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em]">手がかりを追う。</h1></div><div className="rounded-full bg-[#d9e9dd] px-4 py-2 text-xs font-bold text-[#1e7471]"><span className="mr-2 inline-block h-2 w-2 rounded-full bg-[#1e7471]" />高精度測位で探索中</div></div><div className="grid gap-6 lg:grid-cols-[1.32fr_.68fr]"><div className="relative min-h-[510px] overflow-hidden rounded-[28px] border border-[#cfd8cb] bg-[#dbe5d8]"><div className="map-grid absolute inset-0" /><div className="map-water right-[-8%] top-[16%] h-64 w-72 rotate-12 opacity-80" /><div className="map-road left-[3%] top-[40%] w-[86%] rotate-[19deg]" /><div className="map-road left-[15%] top-[73%] w-[80%] rotate-[-18deg]" /><div className="map-road left-[48%] top-[8%] w-[70%] rotate-[79deg] opacity-40" /><div className="absolute left-[19%] top-[22%] rounded-full bg-[#f4f0e6]/75 px-3 py-1 font-mono text-[9px] font-bold tracking-[.12em] text-[#618073]">神楽坂</div><div className="absolute left-[29%] top-[56%] h-[35%] w-px origin-top rotate-[22deg] border-l-2 border-dashed border-[#1e7471]/60" /><div className="absolute left-[25%] top-[50%] grid h-9 w-9 place-items-center rounded-full border-4 border-[#f4f0e6] bg-[#1e7471] text-white shadow-lg"><Crosshair size={15} /></div><div className="absolute left-[54%] top-[42%] grid h-5 w-5 place-items-center rounded-full bg-[#e47750] text-white map-pin"><span className="h-1.5 w-1.5 rounded-full bg-white" /></div><div className="absolute bottom-5 left-5 rounded-2xl bg-[#f4f0e6]/90 px-4 py-3 backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.15em] text-[#668078]">current area</p><p className="mt-1 text-sm font-bold">東京都 新宿区 神楽坂</p></div><div className="absolute right-5 top-5 rounded-xl bg-[#173640] px-3 py-2 font-mono text-[10px] text-[#f1c66b]">北 ↑</div></div><aside className="rounded-[28px] bg-[#173640] p-6 text-[#f4f0e6] sm:p-8"><div className="flex items-center justify-between"><span className="rounded-full bg-[#31555a] px-3 py-1 font-mono text-[9px] uppercase tracking-[.16em] text-[#a9c1b2]">clue 01</span><CircleHelp size={18} className="text-[#f1c66b]" /></div><h2 className="mt-8 font-display text-3xl font-extrabold leading-tight">石段の先で、<br /><span className="text-[#f1c66b]">街の喧騒が消える。</span></h2><p className="mt-5 text-sm leading-7 text-[#b9c8bc]">{destination.detail}</p><div className="my-7 h-px bg-[#31555a]" /><div className="flex items-end justify-between"><div><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#8fa99b]">distance to target</p><p className="mt-1 font-display text-4xl font-extrabold text-[#f1c66b]">{formatDistance(mission.distance)}<span className="ml-1 text-sm font-normal text-[#a9c1b2]">m</span></p></div><div className="text-right text-xs text-[#a9c1b2]"><p>{destination.walk}</p><p>{destination.city}</p></div></div><div className="mt-5 rounded-xl bg-[#244950] px-3 py-3 text-xs leading-5 text-[#d3e1d2]"><p className="font-bold text-[#f1c66b]">高精度測位モード</p><p className="mt-1">端末が利用できる高精度な位置情報を要求しています。</p>{mission.accuracy !== undefined && <p className="mt-1">現在の測位誤差：約{Math.round(mission.accuracy)}m</p>}</div>{locationError && <p className="mt-5 rounded-xl bg-[#6a3f43] px-3 py-3 text-xs leading-5 text-[#ffe2d4]" aria-live="assertive" data-testid="status-location-error">{locationError}</p>}{message && <p className="mt-5 rounded-xl bg-[#284b52] px-3 py-3 text-xs leading-5 text-[#d3e1d2]" aria-live="polite" data-testid="status-navigation-message">{message}</p>}<div className="mt-7 space-y-3"><button type="button" disabled={locating} onClick={locate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#54736d] px-4 py-3.5 text-sm font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52] disabled:opacity-60" data-testid="button-update-location"><Navigation size={17} className={locating ? 'animate-pulse' : ''} />{locating ? '現在地を確認中…' : '高精度で現在地を更新'}</button><button type="button" onClick={verify} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e47750] px-4 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b] transition-transform hover:-translate-y-0.5" data-testid="button-verify-location"><Crosshair size={17} />現地に到着した</button></div></aside></div></main></AppShell>;
+
+  const revealHint = () => {
+    if (progress.hintsRevealed >= mission.hints.length) return;
+    updateProgress((current) => ({ ...current, hintsRevealed: current.hintsRevealed + 1 }));
+  };
+
+  const verify = () => {
+    if (!fix || distance === null) return setMessage('まず現在地を取得してください。');
+    if (!accuracyOk) return setMessage(`測位誤差が約${Math.round(fix.accuracy)}mあります。判定には${mission.maximumAccuracy}m以内の精度が必要です。空の見える場所で再試行してください。`);
+    if (distance > mission.discoveryRadius) return setMessage(`発見地点まであと${Math.round(distance)}mです。${stageMessage(stage)}`);
+    const now = new Date().toISOString();
+    updateProgress({ verified: true, verifiedAt: now, discovered: true, discoveredAt: now });
+    setLocation('/discover');
+  };
+
+  const stageTone: Record<typeof stage, string> = { unknown: 'bg-[#31555a] text-[#a9c1b2]', far: 'bg-[#31555a] text-[#d3e1d2]', approaching: 'bg-[#2f5f5c] text-[#d9ecd9]', near: 'bg-[#6b6236] text-[#f5e6b8]', search: 'bg-[#7a4b33] text-[#ffe2d4]', arrived: 'bg-[#1e7471] text-white' };
+
+  return <AppShell {...shellProps(setLocation)}><main className="mx-auto max-w-[1240px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12"><div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em]">{mission.title}</h1></div><div className={`rounded-full px-4 py-2 text-xs font-bold ${fix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${fix ? 'bg-[#1e7471]' : 'bg-[#a7761f] animate-pulse'}`} />{fix?.simulated ? 'シミュレーション中' : fix ? `測位中 · 誤差 約${Math.round(fix.accuracy)}m` : '現在地を取得中'}</div></div>
+    <div className="grid gap-6 lg:grid-cols-[1.32fr_.68fr]">
+      <div className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-[#cfd8cb] lg:min-h-[560px]">
+        <MissionMap mission={mission} fix={fix} revealGoal={canDiscover} />
+        <div className="pointer-events-none absolute bottom-5 left-5 z-[500] rounded-2xl bg-[#f4f0e6]/90 px-4 py-3 backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.15em] text-[#668078]">search area</p><p className="mt-1 text-sm font-bold">{mission.city} {mission.area}</p></div>
+        {bearing !== null && <div className="pointer-events-none absolute right-5 top-5 z-[500] flex items-center gap-2 rounded-xl bg-[#173640] px-3 py-2 font-mono text-[10px] text-[#f1c66b]" data-testid="status-bearing"><Navigation size={12} style={{ transform: `rotate(${bearing - 45}deg)` }} />{compassLabel(bearing)}</div>}
+      </div>
+      <aside className="rounded-[28px] bg-[#173640] p-6 text-[#f4f0e6] sm:p-8">
+        <div className="flex items-center justify-between"><span className="rounded-full bg-[#31555a] px-3 py-1 font-mono text-[9px] uppercase tracking-[.16em] text-[#a9c1b2]">clue</span><CircleHelp size={18} className="text-[#f1c66b]" /></div>
+        <h2 className="mt-6 font-display text-2xl font-extrabold leading-snug text-[#f1c66b]">{mission.clue}</h2>
+        <p className="mt-4 text-sm leading-7 text-[#b9c8bc]">{mission.detail}</p>
+        {mission.hints.slice(0, progress.hintsRevealed).map((hint, index) => <p key={hint} className="mt-3 flex items-start gap-2 rounded-xl bg-[#244950] px-3 py-3 text-xs leading-5 text-[#d3e1d2]" data-testid={`text-hint-${index + 1}`}><Lightbulb size={14} className="mt-0.5 shrink-0 text-[#f1c66b]" /><span><span className="font-mono text-[9px] uppercase tracking-[.14em] text-[#f1c66b]">hint {index + 1}</span><br />{hint}</span></p>)}
+        {progress.hintsRevealed < mission.hints.length && <button type="button" onClick={revealHint} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#54736d] px-4 py-2.5 text-xs font-bold text-[#a9c1b2] transition-colors hover:bg-[#284b52]" data-testid="button-reveal-hint"><Lightbulb size={14} />ヒントを見る（{progress.hintsRevealed + 1} / {mission.hints.length}）</button>}
+        <div className="my-7 h-px bg-[#31555a]" />
+        <div className="flex items-end justify-between"><div><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#8fa99b]">distance to target</p><p className="mt-1 font-display text-4xl font-extrabold text-[#f1c66b]" data-testid="text-distance">{formatDistance(distance)}<span className="ml-1 text-sm font-normal text-[#a9c1b2]">{distanceUnit(distance)}</span></p></div><div className="text-right text-xs text-[#a9c1b2]"><p>判定範囲 {mission.discoveryRadius}m</p><p>必要精度 {mission.maximumAccuracy}m以内</p></div></div>
+        <p className={`mt-5 rounded-xl px-3 py-3 text-xs leading-5 ${stageTone[stage]}`} data-testid="status-stage">{stageMessage(stage)}{stage === 'arrived' && !accuracyOk && ' ただし測位誤差が大きいため、判定にはもう少し精度が必要です。'}</p>
+        {locationError && <p className="mt-5 rounded-xl bg-[#6a3f43] px-3 py-3 text-xs leading-5 text-[#ffe2d4]" aria-live="assertive" data-testid="status-location-error">{locationError}</p>}
+        {message && <p className="mt-5 rounded-xl bg-[#284b52] px-3 py-3 text-xs leading-5 text-[#d3e1d2]" aria-live="polite" data-testid="status-navigation-message">{message}</p>}
+        <div className="mt-7 space-y-3">
+          <button type="button" disabled={locating} onClick={locate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#54736d] px-4 py-3.5 text-sm font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52] disabled:opacity-60" data-testid="button-update-location"><Navigation size={17} className={locating ? 'animate-pulse' : ''} />{locating ? '現在地を確認中…' : '現在地を更新'}</button>
+          <button type="button" onClick={verify} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold transition-transform hover:-translate-y-0.5 ${canDiscover ? 'bg-[#e47750] text-white shadow-[3px_3px_0_#a74e3b]' : 'bg-[#2c4f56] text-[#a9c1b2]'}`} data-testid="button-verify-location"><Crosshair size={17} />{canDiscover ? '発見する' : 'この場所で判定する'}</button>
+          {DEMO_MODE && !simulating && <button type="button" onClick={startSimulation} className="w-full rounded-xl px-4 py-2 font-mono text-[10px] uppercase tracking-[.16em] text-[#8fa99b] underline underline-offset-4" data-testid="button-start-simulation">demo: GPSなしでシミュレーション</button>}
+        </div>
+      </aside>
+    </div></main></AppShell>;
 }
 
-function CapturePage() {
+function DiscoverPage({ mission }: { mission: Mission }) {
   const [, setLocation] = useLocation();
-  const [mission, setMission] = useState<MissionState>(() => readStorage(MISSION_KEY, initialMission));
+  const [progress, updateProgress] = useProgress(mission.id);
+  useEffect(() => {
+    if (!progress.discovered) setLocation('/navigate');
+  }, [progress.discovered, setLocation]);
+  const finish = () => {
+    updateProgress({ completed: true, completedAt: new Date().toISOString() });
+    setLocation('/complete');
+  };
+  return <AppShell {...shellProps(setLocation)}><main className="mx-auto max-w-[900px] px-5 pb-24 pt-8 sm:px-8 sm:pt-12">
+    <div className="mb-8 animate-rise"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#1e7471]">{missionLabel(mission)} / discovered</p><h1 className="mt-2 font-display text-5xl font-extrabold tracking-[-.04em]">発見。</h1><p className="mt-3 text-sm text-[#718078]">この一点に立った人だけが受け取れる話です。</p></div>
+    <article className="animate-rise delay-2 overflow-hidden rounded-[30px] bg-[#173640] text-[#f4f0e6] shadow-[0_22px_55px_rgba(26,57,64,.16)]">
+      <div className="relative h-56 sm:h-72"><MissionMap mission={mission} fix={null} revealGoal interactive={false} /><div className="pointer-events-none absolute inset-0 z-[500] bg-gradient-to-t from-[#173640] via-[#173640]/40 to-transparent" /><div className="pointer-events-none absolute bottom-5 left-6 z-[500] flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-[#f1c66b] text-[#173640] shadow-[0_0_0_10px_rgba(241,198,107,.14)]"><Stamp size={22} /></span><div><p className="font-mono text-[9px] uppercase tracking-[.2em] text-[#f1c66b]">{mission.discovery.stamp}</p><p className="font-display text-xl font-bold">{mission.name}</p></div></div></div>
+      <div className="px-6 pb-8 pt-4 sm:px-10 sm:pb-10"><h2 className="font-display text-2xl font-extrabold leading-snug text-[#f1c66b] sm:text-3xl" data-testid="text-discovery-headline">{mission.discovery.headline}</h2><p className="mt-5 max-w-xl text-sm leading-8 text-[#d3e1d2]" data-testid="text-discovery-story">{mission.discovery.story}</p><div className="mt-8 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">place</p><p className="mt-2 text-sm font-bold">{mission.city}</p></div><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">discovered</p><p className="mt-2 text-sm font-bold">{formatDate(progress.discoveredAt)}</p></div><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">hints used</p><p className="mt-2 text-sm font-bold">{progress.hintsRevealed} / {mission.hints.length}</p></div></div></div>
+    </article>
+    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <button type="button" onClick={finish} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-finish-mission"><Check size={18} />記録して完了する</button>
+      {mission.photoEnabled && <Link href="/capture" className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#cdd6ca] bg-[#f9f7f0] px-5 py-3.5 text-sm font-bold text-[#536b65]" data-testid="link-capture-photo"><Camera size={18} />記念写真を撮る（任意）</Link>}
+    </div>
+  </main></AppShell>;
+}
+
+function CapturePage({ mission }: { mission: Mission }) {
+  const [, setLocation] = useLocation();
+  const [progress, updateProgress] = useProgress(mission.id);
   const [cameraState, setCameraState] = useState<'idle' | 'live' | 'fallback' | 'captured'>('idle');
   const [cameraMessage, setCameraMessage] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  useEffect(() => {
+    if (!progress.discovered) setLocation('/navigate');
+  }, [progress.discovered, setLocation]);
   useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
   const startCamera = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraState('fallback'); setCameraMessage('このブラウザではカメラを利用できません。記念メモで完了できます。'); return;
+      setCameraState('fallback'); setCameraMessage('このブラウザではカメラを利用できません。記念メモで残せます。'); return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
@@ -360,34 +417,43 @@ function CapturePage() {
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraState('live');
     } catch {
-      setCameraState('fallback'); setCameraMessage('カメラへのアクセスが許可されませんでした。記念メモで続けられます。');
+      setCameraState('fallback'); setCameraMessage('カメラへのアクセスが許可されませんでした。記念メモで残せます。');
     }
   };
   const capture = () => {
-    const next = { ...mission, captured: true, photo: 'camera-frame' };
-    setMission(next); saveMission(next); setCameraState('captured'); streamRef.current?.getTracks().forEach((track) => track.stop());
+    updateProgress({ captured: true, photo: 'camera-frame' });
+    setCameraState('captured');
+    streamRef.current?.getTracks().forEach((track) => track.stop());
   };
   const finishWithoutCamera = () => {
-    const next = { ...mission, captured: true, photo: 'field-note' };
-    setMission(next); saveMission(next); setCameraState('captured');
+    updateProgress({ captured: true, photo: 'field-note' });
+    setCameraState('captured');
   };
-  return <AppShell session={readStorage<Session | null>(SESSION_KEY, null)} onSignOut={() => { localStorage.removeItem(SESSION_KEY); setLocation('/auth'); }}><main className="mx-auto max-w-[900px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12"><div className="mb-8"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">mission 04 / proof</p><h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em]">見つけた瞬間を残す。</h1><p className="mt-3 text-sm text-[#718078]">この場所に来た証として、一枚だけ撮影しましょう。</p></div><div className="overflow-hidden rounded-[28px] bg-[#173640] p-2 shadow-[0_22px_55px_rgba(26,57,64,.16)]"><div className="relative min-h-[460px] overflow-hidden rounded-[22px] bg-[#284b52]">{cameraState === 'live' && <video ref={videoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" aria-label="カメラプレビュー" data-testid="video-camera-preview" />} {cameraState === 'captured' && <div className="absolute inset-0 bg-[linear-gradient(135deg,#3d6b68,#d07858_58%,#f1c66b)]"><div className="absolute left-[12%] top-[18%] h-40 w-32 rotate-[-9deg] rounded-[45%_45%_8%_8%] bg-[#e9d9bc]/70" /><div className="absolute bottom-[15%] right-[12%] h-44 w-44 rounded-full border-[18px] border-[#173640]/30" /><div className="absolute inset-0 bg-[#173640]/10" /></div>} {cameraState === 'idle' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#3d6b68,#173640_70%)] px-6 text-center"><div className="grid h-20 w-20 place-items-center rounded-full border border-[#f1c66b]/50 text-[#f1c66b]"><Camera size={31} strokeWidth={1.5} /></div><p className="mt-7 font-display text-2xl font-bold text-[#f4f0e6]">赤城神社をフレームに</p><p className="mt-2 max-w-xs text-sm leading-6 text-[#adc2b1]">カメラを起動して、旅の証を撮影します。</p></div>}{cameraState === 'fallback' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#244950] px-6 text-center"><div className="grid h-16 w-16 place-items-center rounded-full bg-[#f1c66b] text-[#173640]"><Info size={27} /></div><p className="mt-6 font-display text-2xl font-bold text-[#f4f0e6]">カメラなしでも大丈夫</p><p className="mt-2 max-w-sm text-sm leading-6 text-[#b7c8bb]">{cameraMessage}</p></div>}{cameraState === 'live' && <div className="pointer-events-none absolute inset-7 border border-[#f4f0e6]/60"><span className="absolute left-0 top-0 h-7 w-7 border-l-2 border-t-2 border-[#f1c66b]" /><span className="absolute right-0 top-0 h-7 w-7 border-r-2 border-t-2 border-[#f1c66b]" /><span className="absolute bottom-0 left-0 h-7 w-7 border-b-2 border-l-2 border-[#f1c66b]" /><span className="absolute bottom-0 right-0 h-7 w-7 border-b-2 border-r-2 border-[#f1c66b]" /></div>}{cameraState === 'captured' && <div className="absolute bottom-5 left-5 rounded-xl bg-[#173640]/80 px-4 py-3 text-[#f4f0e6] backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#f1c66b]">proof captured</p><p className="mt-1 text-sm font-bold">2025.06.18 / 神楽坂</p></div>}</div></div><div className="mt-6 flex flex-col gap-3 sm:flex-row">{cameraState === 'idle' && <button type="button" onClick={startCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-start-camera"><Camera size={18} />カメラを起動</button>}{cameraState === 'live' && <button type="button" onClick={capture} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-capture-photo"><Camera size={18} />撮影する</button>}{cameraState === 'fallback' && <button type="button" onClick={finishWithoutCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-use-field-note"><Check size={18} />記念メモで続ける</button>}{cameraState === 'captured' && <button type="button" onClick={() => setLocation('/complete')} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-complete-mission">ミッションを完了する<ChevronRight size={18} /></button>}<Link href="/navigate" className="flex items-center justify-center rounded-xl border border-[#cdd6ca] bg-[#f9f7f0] px-5 py-3.5 text-sm font-bold text-[#536b65]" data-testid="link-back-navigation">地図に戻る</Link></div></main></AppShell>;
+  const complete = () => {
+    updateProgress((current) => ({ ...current, completed: true, completedAt: current.completedAt ?? new Date().toISOString() }));
+    setLocation('/complete');
+  };
+  return <AppShell {...shellProps(setLocation)}><main className="mx-auto max-w-[900px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12"><div className="mb-8"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / memory</p><h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em]">見つけた瞬間を残す。</h1><p className="mt-3 text-sm text-[#718078]">写真は任意です。撮らなくても発見は記録されています。</p></div><div className="overflow-hidden rounded-[28px] bg-[#173640] p-2 shadow-[0_22px_55px_rgba(26,57,64,.16)]"><div className="relative min-h-[460px] overflow-hidden rounded-[22px] bg-[#284b52]">{cameraState === 'live' && <video ref={videoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" aria-label="カメラプレビュー" data-testid="video-camera-preview" />}{cameraState === 'captured' && <div className="absolute inset-0 bg-[linear-gradient(135deg,#3d6b68,#d07858_58%,#f1c66b)]"><div className="absolute left-[12%] top-[18%] h-40 w-32 rotate-[-9deg] rounded-[45%_45%_8%_8%] bg-[#e9d9bc]/70" /><div className="absolute bottom-[15%] right-[12%] h-44 w-44 rounded-full border-[18px] border-[#173640]/30" /><div className="absolute inset-0 bg-[#173640]/10" /></div>}{cameraState === 'idle' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#3d6b68,#173640_70%)] px-6 text-center"><div className="grid h-20 w-20 place-items-center rounded-full border border-[#f1c66b]/50 text-[#f1c66b]"><Camera size={31} strokeWidth={1.5} /></div><p className="mt-7 font-display text-2xl font-bold text-[#f4f0e6]">{mission.name}をフレームに</p><p className="mt-2 max-w-xs text-sm leading-6 text-[#adc2b1]">カメラを起動して、発見の記念を一枚。</p></div>}{cameraState === 'fallback' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#244950] px-6 text-center"><div className="grid h-16 w-16 place-items-center rounded-full bg-[#f1c66b] text-[#173640]"><Info size={27} /></div><p className="mt-6 font-display text-2xl font-bold text-[#f4f0e6]">カメラなしでも大丈夫</p><p className="mt-2 max-w-sm text-sm leading-6 text-[#b7c8bb]">{cameraMessage}</p></div>}{cameraState === 'live' && <div className="pointer-events-none absolute inset-7 border border-[#f4f0e6]/60"><span className="absolute left-0 top-0 h-7 w-7 border-l-2 border-t-2 border-[#f1c66b]" /><span className="absolute right-0 top-0 h-7 w-7 border-r-2 border-t-2 border-[#f1c66b]" /><span className="absolute bottom-0 left-0 h-7 w-7 border-b-2 border-l-2 border-[#f1c66b]" /><span className="absolute bottom-0 right-0 h-7 w-7 border-b-2 border-r-2 border-[#f1c66b]" /></div>}{cameraState === 'captured' && <div className="absolute bottom-5 left-5 rounded-xl bg-[#173640]/80 px-4 py-3 text-[#f4f0e6] backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#f1c66b]">memory saved</p><p className="mt-1 text-sm font-bold">{formatDate(new Date().toISOString())} / {mission.area}</p></div>}</div></div><div className="mt-6 flex flex-col gap-3 sm:flex-row">{cameraState === 'idle' && <button type="button" onClick={startCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-start-camera"><Camera size={18} />カメラを起動</button>}{cameraState === 'live' && <button type="button" onClick={capture} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-capture-photo"><Camera size={18} />撮影する</button>}{cameraState === 'fallback' && <button type="button" onClick={finishWithoutCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-use-field-note"><Check size={18} />記念メモで残す</button>}{cameraState === 'captured' && <button type="button" onClick={complete} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-complete-mission">ミッションを完了する<ChevronRight size={18} /></button>}<button type="button" onClick={complete} className="flex items-center justify-center rounded-xl border border-[#cdd6ca] bg-[#f9f7f0] px-5 py-3.5 text-sm font-bold text-[#536b65]" data-testid="button-skip-photo">写真なしで完了する</button></div></main></AppShell>;
 }
 
-function CompletePage() {
+function CompletePage({ mission }: { mission: Mission }) {
   const [, setLocation] = useLocation();
-  const [mission, setMission] = useState<MissionState>(() => readStorage(MISSION_KEY, initialMission));
+  const [progress, updateProgress] = useProgress(mission.id);
   useEffect(() => {
-    if (!mission.completed) { const next = { ...mission, completed: true }; setMission(next); saveMission(next); }
-  }, [mission]);
-  return <AppShell session={readStorage<Session | null>(SESSION_KEY, null)} onSignOut={() => { localStorage.removeItem(SESSION_KEY); setLocation('/auth'); }}><main className="mx-auto max-w-[900px] px-5 pb-24 pt-12 sm:px-8 sm:pt-20"><div className="relative overflow-hidden rounded-[30px] bg-[#173640] px-6 py-14 text-center text-[#f4f0e6] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:px-16"><div className="absolute left-[12%] top-[-30px] h-28 w-28 rounded-full border border-[#f1c66b]/20" /><div className="absolute bottom-[-70px] right-[8%] h-48 w-48 rounded-full border border-[#f1c66b]/15" /><div className="relative"><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[#f1c66b] text-[#173640] shadow-[0_0_0_12px_rgba(241,198,107,.14)] animate-rise"><Check size={38} strokeWidth={3} /></div><p className="mt-9 font-mono text-[10px] uppercase tracking-[.28em] text-[#f1c66b]">mission complete</p><h1 className="mt-4 font-display text-4xl font-extrabold tracking-[-.04em] sm:text-6xl">見つけた。</h1><p className="mx-auto mt-5 max-w-md text-sm leading-7 text-[#b7c8bb]">神楽坂の路地を抜けて、赤城神社に到着しました。今日の景色は、あなたの記録になりました。</p><div className="mx-auto mt-10 max-w-sm rounded-2xl bg-[#244950] p-4 text-left"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">logged landmark</p><div className="mt-3 flex items-center justify-between"><div><p className="font-display text-xl font-bold">{destination.name}</p><p className="mt-1 text-xs text-[#a9c1b2]">{destination.city} / 2025.06.18</p></div><MapPinned size={23} className="text-[#f1c66b]" /></div></div><div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" onClick={() => setLocation('/')} className="rounded-xl bg-[#e47750] px-6 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-back-home">ホームへ戻る<ChevronRight size={16} className="ml-2 inline" /></button><Link href="/profile" className="rounded-xl border border-[#54736d] px-6 py-3.5 text-sm font-bold text-[#f4f0e6]" data-testid="link-view-record">記録を見る</Link></div></div></div></main></AppShell>;
+    if (!progress.discovered) { setLocation('/navigate'); return; }
+    if (!progress.completed) updateProgress({ completed: true, completedAt: new Date().toISOString() });
+  }, [progress.discovered, progress.completed, setLocation, updateProgress]);
+  return <AppShell {...shellProps(setLocation)}><main className="mx-auto max-w-[900px] px-5 pb-24 pt-12 sm:px-8 sm:pt-20"><div className="relative overflow-hidden rounded-[30px] bg-[#173640] px-6 py-14 text-center text-[#f4f0e6] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:px-16"><div className="absolute left-[12%] top-[-30px] h-28 w-28 rounded-full border border-[#f1c66b]/20" /><div className="absolute bottom-[-70px] right-[8%] h-48 w-48 rounded-full border border-[#f1c66b]/15" /><div className="relative"><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[#f1c66b] text-[#173640] shadow-[0_0_0_12px_rgba(241,198,107,.14)] animate-rise"><Check size={38} strokeWidth={3} /></div><p className="mt-9 font-mono text-[10px] uppercase tracking-[.28em] text-[#f1c66b]">mission complete</p><h1 className="mt-4 font-display text-4xl font-extrabold tracking-[-.04em] sm:text-6xl">見つけた。</h1><p className="mx-auto mt-5 max-w-md text-sm leading-7 text-[#b7c8bb]">{mission.area}を歩いて、{mission.name}の一点に到達しました。今日の景色は、あなたのコレクションになりました。</p><div className="mx-auto mt-10 max-w-sm rounded-2xl bg-[#244950] p-4 text-left"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">collection +1</p><div className="mt-3 flex items-center justify-between"><div><p className="font-display text-xl font-bold">{mission.name}</p><p className="mt-1 text-xs text-[#a9c1b2]">{mission.city} / {formatDate(progress.discoveredAt)}</p></div><MapPinned size={23} className="text-[#f1c66b]" /></div></div><div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" onClick={() => setLocation('/')} className="rounded-xl bg-[#e47750] px-6 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-back-home">次のミッションへ<ChevronRight size={16} className="ml-2 inline" /></button><Link href="/profile" className="rounded-xl border border-[#54736d] px-6 py-3.5 text-sm font-bold text-[#f4f0e6]" data-testid="link-view-record">記録を見る</Link></div></div></div></main></AppShell>;
 }
 
 function ProfilePage({ session, onSignOut }: { session: Session | null; onSignOut: () => void }) {
   const [, setLocation] = useLocation();
-  const mission = readStorage<MissionState>(MISSION_KEY, initialMission);
+  const allProgress = readAllProgress();
+  const discovered = publishedMissions.filter((mission) => allProgress[mission.id]?.discovered);
+  const cities = new Set(discovered.map((mission) => mission.city));
+  const photos = discovered.filter((mission) => allProgress[mission.id]?.captured).length;
   const name = session?.displayName ?? '旅人';
-  return <AppShell session={session} onSignOut={() => { onSignOut(); setLocation('/auth'); }}><main className="mx-auto max-w-[980px] px-5 pb-24 pt-8 sm:px-8 sm:pt-12"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div className="flex items-center gap-4"><div className="grid h-16 w-16 place-items-center rounded-[20px] bg-[#dd7552] font-display text-xl font-bold text-white shadow-[4px_4px_0_#b65d47]">{initials(name)}</div><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#668078]">your field notes</p><h1 className="mt-1 font-display text-3xl font-extrabold">{name}さんの記録</h1><p className="mt-1 text-xs text-[#718078]">{session?.email}</p></div></div><button type="button" onClick={() => { onSignOut(); setLocation('/auth'); }} className="flex items-center gap-2 self-start rounded-xl border border-[#e1c9c2] px-4 py-2.5 text-sm font-bold text-[#b24d3d] sm:self-auto" data-testid="button-logout"><LogOut size={16} />ログアウト</button></div><div className="mt-10 grid gap-4 sm:grid-cols-3"><StatCard icon={Check} number={mission.completed ? '04' : '03'} label="クリアした謎" accent="teal" /><StatCard icon={MapPinned} number="03" label="訪れた街" accent="gold" /><StatCard icon={Camera} number={mission.captured ? '04' : '03'} label="残した写真" accent="coral" /></div><section className="mt-12"><div className="flex items-end justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#668078]">recently discovered</p><h2 className="mt-2 font-display text-2xl font-extrabold">最近の発見</h2></div><span className="font-mono text-[10px] text-[#8b968e]">03 / 12 LOCATIONS</span></div><div className="mt-5 overflow-hidden rounded-2xl border border-[#dedfd4] bg-[#f9f7f0]"><div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center"><div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#3d6b68,#d07858)] text-[#f1c66b]"><MapPinned size={28} /></div><div className="flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-display text-xl font-bold">{destination.name}</h3>{mission.completed && <span className="rounded-full bg-[#d9e9dd] px-2.5 py-1 text-[10px] font-bold text-[#1e7471]">クリア済み</span>}</div><p className="mt-1 text-sm text-[#718078]">{destination.city} · 東京の静かな屋上神社</p></div><div className="text-left sm:text-right"><p className="font-mono text-[10px] text-[#8b968e]">JUN 18, 2025</p><p className="mt-1 text-xs font-bold text-[#dd7552]">{mission.captured ? '写真あり' : '探索中'}</p></div></div></div></section><section className="mt-10 rounded-2xl border border-[#d8ded2] bg-[#e4ebdf] p-5 sm:p-6"><div className="flex gap-4"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f1c66b] text-[#173640]"><ShieldCheck size={20} /></div><div><h3 className="font-display font-bold">この旅のデータは、このブラウザに保存されています</h3><p className="mt-1 text-sm leading-6 text-[#667870]">GeoPuzzleプロトタイプでは、ログイン情報と発見記録を端末内だけで管理しています。別の端末には同期されません。</p></div></div></section></main></AppShell>;
+  return <AppShell session={session} onSignOut={() => { onSignOut(); setLocation('/auth'); }}><main className="mx-auto max-w-[980px] px-5 pb-24 pt-8 sm:px-8 sm:pt-12"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div className="flex items-center gap-4"><div className="grid h-16 w-16 place-items-center rounded-[20px] bg-[#dd7552] font-display text-xl font-bold text-white shadow-[4px_4px_0_#b65d47]">{initials(name)}</div><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#668078]">your collection</p><h1 className="mt-1 font-display text-3xl font-extrabold">{name}さんの記録</h1><p className="mt-1 text-xs text-[#718078]">{session?.email}</p></div></div><button type="button" onClick={() => { onSignOut(); setLocation('/auth'); }} className="flex items-center gap-2 self-start rounded-xl border border-[#e1c9c2] px-4 py-2.5 text-sm font-bold text-[#b24d3d] sm:self-auto" data-testid="button-logout"><LogOut size={16} />ログアウト</button></div><div className="mt-10 grid gap-4 sm:grid-cols-3"><StatCard icon={Stamp} number={String(discovered.length).padStart(2, '0')} label="発見した一点" accent="teal" /><StatCard icon={MapPinned} number={String(cities.size).padStart(2, '0')} label="訪れた街" accent="gold" /><StatCard icon={Camera} number={String(photos).padStart(2, '0')} label="残した写真" accent="coral" /></div><section className="mt-12"><div className="flex items-end justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#668078]">collection</p><h2 className="mt-2 font-display text-2xl font-extrabold">発見の記録</h2></div><span className="font-mono text-[10px] text-[#8b968e]">{String(discovered.length).padStart(2, '0')} / {String(publishedMissions.length).padStart(2, '0')} LOCATIONS</span></div><div className="mt-5 space-y-3">{publishedMissions.map((mission) => { const state = allProgress[mission.id]; return <div key={mission.id} className="overflow-hidden rounded-2xl border border-[#dedfd4] bg-[#f9f7f0]" data-testid={`card-record-${mission.id}`}><div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center"><div className={`grid h-20 w-20 shrink-0 place-items-center rounded-2xl ${state?.discovered ? 'bg-[linear-gradient(135deg,#3d6b68,#d07858)] text-[#f1c66b]' : 'bg-[#e4ebdf] text-[#9cb0a6]'}`}>{state?.discovered ? <Stamp size={28} /> : <MapPinned size={28} />}</div><div className="flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-display text-xl font-bold">{mission.name}</h3>{state?.discovered && <span className="rounded-full bg-[#d9e9dd] px-2.5 py-1 text-[10px] font-bold text-[#1e7471]">{mission.discovery.stamp}</span>}</div><p className="mt-1 text-sm text-[#718078]">{mission.city} · {state?.discovered ? mission.discovery.headline : mission.title}</p></div><div className="text-left sm:text-right"><p className="font-mono text-[10px] text-[#8b968e]">{state?.discovered ? formatDate(state.discoveredAt) : '未発見'}</p><p className="mt-1 text-xs font-bold text-[#dd7552]">{state?.captured ? (state.photo === 'camera-frame' ? '写真あり' : '記念メモ') : state?.discovered ? '発見済み' : '探索中'}</p></div></div></div>; })}</div></section><section className="mt-10 rounded-2xl border border-[#d8ded2] bg-[#e4ebdf] p-5 sm:p-6"><div className="flex gap-4"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f1c66b] text-[#173640]"><ShieldCheck size={20} /></div><div><h3 className="font-display font-bold">この旅のデータは、このブラウザに保存されています</h3><p className="mt-1 text-sm leading-6 text-[#667870]">GeoPuzzleプロトタイプでは、ログイン情報と発見記録を端末内だけで管理しています。別の端末には同期されません。</p></div></div></section></main></AppShell>;
 }
 
 function initials(name: string) {
