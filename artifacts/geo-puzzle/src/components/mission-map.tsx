@@ -15,7 +15,13 @@ type Props = {
 const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-const userIcon = L.divIcon({ className: '', html: '<div class="geo-marker-user"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
+const userIcon = (provider?: Fix['provider']) =>
+  L.divIcon({
+    className: '',
+    html: `<div class="geo-marker-user${provider === 'qzss' ? ' is-qzss' : ''}"></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
 const goalIcon = L.divIcon({ className: '', html: '<div class="geo-marker-goal"></div>', iconSize: [20, 20], iconAnchor: [10, 10] });
 
 export function MissionMap({ mission, fix, revealGoal = false, className = '', interactive = true }: Props) {
@@ -95,12 +101,16 @@ export function MissionMap({ mission, fix, revealGoal = false, className = '', i
     }
     const here = L.latLng(fix.latitude, fix.longitude);
     const goal = L.latLng(mission.latitude, mission.longitude);
-    if (!userMarkerRef.current) userMarkerRef.current = L.marker(here, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
-    else userMarkerRef.current.setLatLng(here);
+    const markerColor = fix.provider === 'qzss' ? '#e05c35' : '#1e7471';
+    if (!userMarkerRef.current) userMarkerRef.current = L.marker(here, { icon: userIcon(fix.provider), zIndexOffset: 1000 }).addTo(map);
+    else {
+      userMarkerRef.current.setLatLng(here);
+      userMarkerRef.current.setIcon(userIcon(fix.provider));
+    }
     if (!accuracyRef.current) {
-      accuracyRef.current = L.circle(here, { radius: fix.accuracy, color: '#1e7471', weight: 1, fillColor: '#1e7471', fillOpacity: 0.12 }).addTo(map);
+      accuracyRef.current = L.circle(here, { radius: fix.accuracy, color: markerColor, weight: 1, fillColor: markerColor, fillOpacity: 0.12 }).addTo(map);
     } else {
-      accuracyRef.current.setLatLng(here).setRadius(fix.accuracy);
+      accuracyRef.current.setLatLng(here).setRadius(fix.accuracy).setStyle({ color: markerColor, fillColor: markerColor });
     }
     if (revealGoal) {
       if (!lineRef.current) lineRef.current = L.polyline([here, goal], { color: '#1e7471', weight: 2, dashArray: '4 8' }).addTo(map);

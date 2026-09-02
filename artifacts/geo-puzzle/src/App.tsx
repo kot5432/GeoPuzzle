@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Compass, Camera, Check, ChevronRight, CircleHelp, Clock3, Crosshair, Eye, Github, History, Home, Info, KeyRound, Lightbulb, LockKeyhole, LogOut, Mail, MapPinned, Menu, Navigation, Route as RouteIcon, ShieldCheck, Sparkles, Stamp, Target, UserRound, type LucideIcon } from 'lucide-react';
+import { Compass, Camera, Check, ChevronRight, CircleHelp, Clock3, Crosshair, Eye, Github, History, Home, Info, KeyRound, Lightbulb, LockKeyhole, LogOut, Mail, MapPinned, Menu, Navigation, Plug, PlugZap, Route as RouteIcon, ShieldCheck, Sparkles, Stamp, Target, UserRound, type LucideIcon } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { MissionMap } from '@/components/mission-map';
 import { Toaster } from '@/components/ui/toaster';
@@ -8,6 +8,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { findMission, missionLabel, publishedMissions, type Mission } from '@/data/missions';
 import { bearingInDegrees, compassLabel, distanceInMeters, distanceUnit, fixFromPosition, formatDistance, geolocationErrorMessage, simulatedFix, stageFor, stageMessage, type Fix } from '@/lib/geo';
+import { useQzssReceiver } from '@/hooks/use-qzss-receiver';
+import { accuracyMetersFromState, signalQualityColor, signalQualityLabel, webSerialUnavailableMessage } from '@/lib/qzss';
 import { SESSION_KEY, USERS_KEY, emptyProgress, formatDate, readActiveMissionId, readAllProgress, readProgress, readStorage, saveActiveMissionId, saveProgress, type MissionProgress, type Session, type StoredUser } from '@/lib/storage';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 
@@ -266,12 +268,6 @@ function NavigatePage({ mission }: { mission: Mission }) {
   const [simulating, setSimulating] = useState(false);
   const simulatedDistance = useRef(420);
 
-  const distance = fix ? distanceInMeters(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
-  const bearing = fix ? bearingInDegrees(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
-  const stage = stageFor(distance, mission);
-  const accuracyOk = fix ? fix.accuracy <= mission.maximumAccuracy : false;
-  const canDiscover = stage === 'arrived' && accuracyOk;
-
   const applyFix = useCallback(
     (next: Fix) => {
       setFix(next);
@@ -282,8 +278,18 @@ function NavigatePage({ mission }: { mission: Mission }) {
     [mission.latitude, mission.longitude, updateProgress],
   );
 
+  const qzss = useQzssReceiver({ onFix: applyFix });
+
+  const distance = fix ? distanceInMeters(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
+  const bearing = fix ? bearingInDegrees(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
+  const stage = stageFor(distance, mission);
+  const usingQzss = fix?.provider === 'qzss' && qzss.connected;
+  const requiredAccuracy = usingQzss ? Math.min(mission.maximumAccuracy, 2) : mission.maximumAccuracy;
+  const accuracyOk = fix ? fix.accuracy <= requiredAccuracy : false;
+  const canDiscover = stage === 'arrived' && accuracyOk;
+
   useEffect(() => {
-    if (simulating) return;
+    if (simulating || qzss.connected) return;
     if (!navigator.geolocation) {
       setLocationError('このブラウザは位置情報に対応していません。');
       return;
@@ -298,13 +304,18 @@ function NavigatePage({ mission }: { mission: Mission }) {
       { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [applyFix, simulating]);
+  }, [applyFix, qzss.connected, simulating]);
 
   const locate = () => {
     setMessage('');
     if (simulating) {
       simulatedDistance.current = Math.max(2, simulatedDistance.current * 0.45);
       applyFix(simulatedFix(mission, simulatedDistance.current, 8));
+      return;
+    }
+    if (qzss.connected && qzss.fix) {
+      applyFix(qzss.fix);
+      setMessage(`みちびき測位を更新しました。測位誤差は約${Math.round(qzss.fix.accuracy * 10) / 10}mです。`);
       return;
     }
     if (!navigator.geolocation) return setLocationError('このブラウザは位置情報に対応していません。');
@@ -322,6 +333,19 @@ function NavigatePage({ mission }: { mission: Mission }) {
     );
   };
 
+  const connectQzss = async () => {
+    setMessage('');
+    setLocationError('');
+    const ok = await qzss.connect();
+    if (ok) setMessage('みちびき受信機を接続しました。NMEA データの受信を開始します。');
+  };
+
+  const disconnectQzss = async () => {
+    await qzss.disconnect();
+    setFix(null);
+    setMessage('みちびき受信機を切断しました。');
+  };
+
   const startSimulation = () => {
     setSimulating(true);
     setLocationError('');
@@ -337,7 +361,13 @@ function NavigatePage({ mission }: { mission: Mission }) {
 
   const verify = () => {
     if (!fix || distance === null) return setMessage('まず現在地を取得してください。');
-    if (!accuracyOk) return setMessage(`測位誤差が約${Math.round(fix.accuracy)}mあります。判定には${mission.maximumAccuracy}m以内の精度が必要です。空の見える場所で再試行してください。`);
+    if (!accuracyOk) {
+      return setMessage(
+        usingQzss
+          ? `測位誤差が約${Math.round(fix.accuracy * 10) / 10}mあります。みちびき判定には${requiredAccuracy}m以内の精度が必要です。`
+          : `測位誤差が約${Math.round(fix.accuracy)}mあります。判定には${mission.maximumAccuracy}m以内の精度が必要です。空の見える場所で再試行してください。`,
+      );
+    }
     if (distance > mission.discoveryRadius) return setMessage(`発見地点まであと${Math.round(distance)}mです。${stageMessage(stage)}`);
     const now = new Date().toISOString();
     updateProgress({ verified: true, verifiedAt: now, discovered: true, discoveredAt: now });
@@ -345,8 +375,17 @@ function NavigatePage({ mission }: { mission: Mission }) {
   };
 
   const stageTone: Record<typeof stage, string> = { unknown: 'bg-[#31555a] text-[#a9c1b2]', far: 'bg-[#31555a] text-[#d3e1d2]', approaching: 'bg-[#2f5f5c] text-[#d9ecd9]', near: 'bg-[#6b6236] text-[#f5e6b8]', search: 'bg-[#7a4b33] text-[#ffe2d4]', arrived: 'bg-[#1e7471] text-white' };
+  const positioningLabel = fix?.simulated
+    ? 'シミュレーション中'
+    : usingQzss
+      ? `みちびき測位 · 誤差 約${Math.round(fix.accuracy * 10) / 10}m`
+      : fix
+        ? `測位中 · 誤差 約${Math.round(fix.accuracy)}m`
+        : qzss.connected
+          ? 'みちびき受信中…'
+          : '現在地を取得中';
 
-  return <AppShell {...shellProps(setLocation)}><main className="mx-auto max-w-[1240px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12"><div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em]">{mission.title}</h1></div><div className={`rounded-full px-4 py-2 text-xs font-bold ${fix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${fix ? 'bg-[#1e7471]' : 'bg-[#a7761f] animate-pulse'}`} />{fix?.simulated ? 'シミュレーション中' : fix ? `測位中 · 誤差 約${Math.round(fix.accuracy)}m` : '現在地を取得中'}</div></div>
+  return <AppShell {...shellProps(setLocation)}><main className="mx-auto max-w-[1240px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12"><div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em]">{mission.title}</h1></div><div className={`rounded-full px-4 py-2 text-xs font-bold ${fix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${fix ? (usingQzss ? 'bg-[#e05c35]' : 'bg-[#1e7471]') : 'bg-[#a7761f] animate-pulse'}`} />{positioningLabel}</div></div>
     <div className="grid gap-6 lg:grid-cols-[1.32fr_.68fr]">
       <div className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-[#cfd8cb] lg:min-h-[560px]">
         <MissionMap mission={mission} fix={fix} revealGoal={canDiscover} />
@@ -357,15 +396,40 @@ function NavigatePage({ mission }: { mission: Mission }) {
         <div className="flex items-center justify-between"><span className="rounded-full bg-[#31555a] px-3 py-1 font-mono text-[9px] uppercase tracking-[.16em] text-[#a9c1b2]">clue</span><CircleHelp size={18} className="text-[#f1c66b]" /></div>
         <h2 className="mt-6 font-display text-2xl font-extrabold leading-snug text-[#f1c66b]">{mission.clue}</h2>
         <p className="mt-4 text-sm leading-7 text-[#b9c8bc]">{mission.detail}</p>
+
+        <div className="mt-6 rounded-2xl border border-[#31555a] bg-[#244950] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#9cb5a6]">position source</p>
+              <p className="mt-1 text-sm font-bold" data-testid="status-qzss-connection">{qzss.connected ? 'みちびき接続中' : 'ブラウザ GPS'}</p>
+            </div>
+            {qzss.connected ? (
+              <button type="button" onClick={() => void disconnectQzss()} className="flex items-center gap-2 rounded-xl border border-[#54736d] px-3 py-2 text-xs font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52]" data-testid="button-disconnect-qzss"><Plug size={14} />切断</button>
+            ) : (
+              <button type="button" disabled={!qzss.supported || qzss.connecting} onClick={() => void connectQzss()} className="flex items-center gap-2 rounded-xl bg-[#e05c35] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#c84f2d] disabled:opacity-60" data-testid="button-connect-qzss"><PlugZap size={14} />{qzss.connecting ? '接続中…' : 'みちびき接続'}</button>
+            )}
+          </div>
+          {!qzss.supported && <p className="mt-3 text-xs leading-5 text-[#ffe2d4]">{webSerialUnavailableMessage()}</p>}
+          {qzss.error && <p className="mt-3 text-xs leading-5 text-[#ffe2d4]" data-testid="status-qzss-error">{qzss.error}</p>}
+          {qzss.connected && (
+            <div className="mt-4 grid gap-2 text-xs text-[#d3e1d2]">
+              <div className="flex items-center justify-between gap-3"><span className="text-[#9cb5a6]">信号品質</span><span style={{ color: signalQualityColor(qzss.state.signalQuality) }} data-testid="status-signal-quality">{signalQualityLabel(qzss.state.signalQuality)}</span></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-[#9cb5a6]">測位精度</span><span data-testid="status-qzss-accuracy">{qzss.state.signalQuality === 'none' ? '-' : `約${Math.round(accuracyMetersFromState(qzss.state) * 10) / 10}m`}</span></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-[#9cb5a6]">衛星数</span><span data-testid="status-satellite-count">{qzss.state.satellites.total > 0 ? `${qzss.state.satellites.total}衛星 (GPS:${qzss.state.satellites.gps}, QZSS:${qzss.state.satellites.qzss})` : '-'}</span></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-[#9cb5a6]">受信状態</span><span data-testid="status-reception">{qzss.fix ? '測位中' : '待機中'}</span></div>
+            </div>
+          )}
+        </div>
+
         {mission.hints.slice(0, progress.hintsRevealed).map((hint, index) => <p key={hint} className="mt-3 flex items-start gap-2 rounded-xl bg-[#244950] px-3 py-3 text-xs leading-5 text-[#d3e1d2]" data-testid={`text-hint-${index + 1}`}><Lightbulb size={14} className="mt-0.5 shrink-0 text-[#f1c66b]" /><span><span className="font-mono text-[9px] uppercase tracking-[.14em] text-[#f1c66b]">hint {index + 1}</span><br />{hint}</span></p>)}
         {progress.hintsRevealed < mission.hints.length && <button type="button" onClick={revealHint} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#54736d] px-4 py-2.5 text-xs font-bold text-[#a9c1b2] transition-colors hover:bg-[#284b52]" data-testid="button-reveal-hint"><Lightbulb size={14} />ヒントを見る（{progress.hintsRevealed + 1} / {mission.hints.length}）</button>}
         <div className="my-7 h-px bg-[#31555a]" />
-        <div className="flex items-end justify-between"><div><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#8fa99b]">distance to target</p><p className="mt-1 font-display text-4xl font-extrabold text-[#f1c66b]" data-testid="text-distance">{formatDistance(distance)}<span className="ml-1 text-sm font-normal text-[#a9c1b2]">{distanceUnit(distance)}</span></p></div><div className="text-right text-xs text-[#a9c1b2]"><p>判定範囲 {mission.discoveryRadius}m</p><p>必要精度 {mission.maximumAccuracy}m以内</p></div></div>
+        <div className="flex items-end justify-between"><div><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#8fa99b]">distance to target</p><p className="mt-1 font-display text-4xl font-extrabold text-[#f1c66b]" data-testid="text-distance">{formatDistance(distance)}<span className="ml-1 text-sm font-normal text-[#a9c1b2]">{distanceUnit(distance)}</span></p></div><div className="text-right text-xs text-[#a9c1b2]"><p>判定範囲 {mission.discoveryRadius}m</p><p>必要精度 {requiredAccuracy}m以内{usingQzss ? '（みちびき）' : ''}</p></div></div>
         <p className={`mt-5 rounded-xl px-3 py-3 text-xs leading-5 ${stageTone[stage]}`} data-testid="status-stage">{stageMessage(stage)}{stage === 'arrived' && !accuracyOk && ' ただし測位誤差が大きいため、判定にはもう少し精度が必要です。'}</p>
         {locationError && <p className="mt-5 rounded-xl bg-[#6a3f43] px-3 py-3 text-xs leading-5 text-[#ffe2d4]" aria-live="assertive" data-testid="status-location-error">{locationError}</p>}
         {message && <p className="mt-5 rounded-xl bg-[#284b52] px-3 py-3 text-xs leading-5 text-[#d3e1d2]" aria-live="polite" data-testid="status-navigation-message">{message}</p>}
         <div className="mt-7 space-y-3">
-          <button type="button" disabled={locating} onClick={locate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#54736d] px-4 py-3.5 text-sm font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52] disabled:opacity-60" data-testid="button-update-location"><Navigation size={17} className={locating ? 'animate-pulse' : ''} />{locating ? '現在地を確認中…' : '現在地を更新'}</button>
+          <button type="button" disabled={locating || qzss.connecting} onClick={locate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#54736d] px-4 py-3.5 text-sm font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52] disabled:opacity-60" data-testid="button-update-location"><Navigation size={17} className={locating ? 'animate-pulse' : ''} />{locating ? '現在地を確認中…' : '現在地を更新'}</button>
           <button type="button" onClick={verify} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold transition-transform hover:-translate-y-0.5 ${canDiscover ? 'bg-[#e47750] text-white shadow-[3px_3px_0_#a74e3b]' : 'bg-[#2c4f56] text-[#a9c1b2]'}`} data-testid="button-verify-location"><Crosshair size={17} />{canDiscover ? '発見する' : 'この場所で判定する'}</button>
           {DEMO_MODE && !simulating && <button type="button" onClick={startSimulation} className="w-full rounded-xl px-4 py-2 font-mono text-[10px] uppercase tracking-[.16em] text-[#8fa99b] underline underline-offset-4" data-testid="button-start-simulation">demo: GPSなしでシミュレーション</button>}
         </div>

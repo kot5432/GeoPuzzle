@@ -6,6 +6,7 @@ export type Fix = {
   accuracy: number;
   timestamp: number;
   simulated?: boolean;
+  provider?: 'gps' | 'qzss' | 'simulated';
 };
 
 const EARTH_RADIUS = 6_371_000;
@@ -84,6 +85,7 @@ export function fixFromPosition(position: GeolocationPosition): Fix {
     longitude: position.coords.longitude,
     accuracy: position.coords.accuracy,
     timestamp: position.timestamp,
+    provider: 'gps',
   };
 }
 
@@ -92,5 +94,5 @@ export function simulatedFix(mission: Mission, distance: number, accuracy: numbe
   const offset = distance / Math.SQRT2;
   const latitude = mission.latitude + offset / 111_320;
   const longitude = mission.longitude - offset / (111_320 * Math.cos(toRadians(mission.latitude)));
-  return { latitude, longitude, accuracy, timestamp: Date.now(), simulated: true };
+  return { latitude, longitude, accuracy, timestamp: Date.now(), simulated: true, provider: 'simulated' };
 }
