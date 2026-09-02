@@ -6,7 +6,7 @@ import { MissionMap } from '@/components/mission-map';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { findMission, missionLabel, publishedMissions, type Mission } from '@/data/missions';
+import { findMission, findRegion, missionLabel, missionsByRegion, nearestRegion, publishedMissions, regions, regionMissionStats, areasByRegion, type Mission, type Region } from '@/data/missions';
 import { bearingInDegrees, compassLabel, distanceInMeters, distanceUnit, fixFromPosition, formatDistance, geolocationErrorMessage, simulatedFix, stageFor, stageMessage, type Fix } from '@/lib/geo';
 import { useQzssReceiver } from '@/hooks/use-qzss-receiver';
 import { accuracyMetersFromState, signalQualityColor, signalQualityLabel, webSerialUnavailableMessage } from '@/lib/qzss';
@@ -74,6 +74,9 @@ function App() {
             <RoutedErrorBoundary>
               <Switch>
                 <Route path="/auth"><AuthPage onSignedIn={auth.setSession} /></Route>
+                <Route path="/region/:regionId">
+                  {(match) => <RegionPage regionId={(match.params as any).regionId as string} session={auth.session} />}
+                </Route>
                 <Route path="/navigate"><Protected session={auth.session}><NavigatePage mission={mission} /></Protected></Route>
                 <Route path="/discover"><Protected session={auth.session}><DiscoverPage mission={mission} /></Protected></Route>
                 <Route path="/capture"><Protected session={auth.session}><CapturePage mission={mission} /></Protected></Route>
@@ -201,57 +204,359 @@ function Field({ label, icon: Icon, value, onChange, type, autoComplete, placeho
 
 function HomePage({ session }: { session: Session | null }) {
   const [, setLocation] = useLocation();
-  const { mission, setMission } = useActiveMission();
+  const { setMission } = useActiveMission();
   const allProgress = readAllProgress();
-  const progress = allProgress[mission.id] ?? emptyProgress;
-  const discoveredCount = Object.values(allProgress).filter((entry) => entry.discovered).length;
-  const greeting = session ? `${session.displayName}さん、` : '今日の旅に、';
-  const start = () => setLocation(session ? (progress.discovered && !progress.completed ? '/discover' : '/navigate') : '/auth');
+  const totalDiscovered = Object.values(allProgress).filter((entry) => entry.discovered).length;
+  const greeting = session ? `${session.displayName}さん、` : '';
+
+  const sortedRegions = [...regions].sort((a, b) => a.order - b.order);
+  const nearest = nearestRegion(null);
+  const gotoRegion = (regionId: string) => setLocation(`/region/${regionId}`);
+  const gotoFirstMissionOrAuth = (regionId: string) => {
+    if (!session) {
+      setLocation('/auth');
+      return;
+    }
+    const list = missionsByRegion(regionId);
+    if (list.length === 0) {
+      setLocation(`/region/${regionId}`);
+      return;
+    }
+    const next =
+      list.find((m) => {
+        const p = allProgress[m.id] ?? emptyProgress;
+        return p.discovered && !p.completed;
+      }) ??
+      list.find((m) => !(allProgress[m.id] ?? emptyProgress).discovered) ??
+      list[0];
+    setMission(next);
+    const progress = allProgress[next.id] ?? emptyProgress;
+    if (progress.discovered && !progress.completed) setLocation('/discover');
+    else setLocation('/navigate');
+  };
+  const nearestStats = regionMissionStats(nearest.id, allProgress);
+
   return (
     <main className="mx-auto max-w-[1240px] px-5 pb-[calc(env(safe-area-inset-bottom)+6rem)] pb-safe-bottom-nav pt-6 sm:px-8 sm:pt-10">
+      {/* Hero: ブランディング + 現在地周辺カード */}
       <section className="grid items-stretch gap-6 lg:grid-cols-[1.12fr_.88fr]">
-        <div className="relative min-h-[460px] sm:min-h-[425px] overflow-hidden rounded-[28px] bg-[#173640] p-6 text-[#f6f0e2] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:p-10">
-          <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-[#f1c66b]/20" /><div className="absolute -right-8 -top-12 h-48 w-48 rounded-full border border-[#f1c66b]/20" />
+        <div className="relative min-h-[420px] sm:min-h-[460px] overflow-hidden rounded-[28px] bg-[#173640] p-6 text-[#f6f0e2] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:p-10">
+          <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-[#f1c66b]/20" />
+          <div className="absolute -right-8 -top-12 h-48 w-48 rounded-full border border-[#f1c66b]/20" />
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#122c34] to-transparent" />
-          <div className="relative z-10 flex h-full flex-col justify-between gap-8">
-            <div className="animate-rise"><div className="mb-6 sm:mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-[.24em] text-[#f1c66b]"><Sparkles size={15} /> {missionLabel(mission)}</div><p className="mb-3 text-sm text-[#b2c2b4]">{greeting}次の一点を探そう。</p><h1 className="max-w-[560px] font-display text-3xl sm:text-4xl lg:text-6xl font-extrabold leading-[1.04] tracking-[-.04em]">街の中に、<br /><span className="text-[#f1c66b]">まだ知らない</span><br />景色がある。</h1></div>
-            <div className="animate-rise delay-2 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div className="min-w-0"><p className="mb-1 font-mono text-[10px] uppercase tracking-[.2em] text-[#91aaa0]">today's clue / {mission.area}</p><p className="max-w-[340px] text-sm leading-relaxed text-[#d8e0d5] break-words">「{mission.clue}」</p></div><button type="button" onClick={start} className="group flex shrink-0 items-center justify-between gap-3 sm:gap-5 rounded-full bg-[#e47750] px-4 sm:px-5 py-3 sm:py-3.5 text-sm font-bold text-white shadow-[4px_4px_0_#a74e3b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-start-mission"><span className="min-w-0">{!session ? '旅をはじめる' : progress.completed ? 'もう一度歩く' : progress.discovered ? '発見を確認する' : '探索をはじめる'}</span><ChevronRight size={18} className="transition-transform group-hover:translate-x-1 shrink-0" /></button></div>
+          <div className="relative z-10 flex h-full flex-col justify-between gap-10">
+            <div className="animate-rise">
+              <div className="mb-6 sm:mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-[.24em] text-[#f1c66b]"><Sparkles size={15} /> your next expedition</div>
+              <p className="mb-3 text-sm text-[#b2c2b4]">{greeting}探して、見つける。</p>
+              <h1 className="max-w-[560px] font-display text-3xl sm:text-4xl lg:text-6xl font-extrabold leading-[1.04] tracking-[-.04em]">
+                まだ<span className="text-[#f1c66b]">名前も知らない</span><br />
+                街の一点を、<br />
+                探しにいこう。
+              </h1>
+            </div>
+            <div className="animate-rise delay-2 grid gap-3 sm:grid-cols-2 sm:items-end">
+              <StatCardDark icon={Target} number={String(totalDiscovered).padStart(2, '0')} label="これまでの発見" />
+              <StatCardDark icon={RouteIcon} number={String(publishedMissions.length).padStart(2, '0')} label="解放された謎" accent="coral" />
+            </div>
           </div>
         </div>
-        <div className="relative min-h-[360px] sm:min-h-[425px] overflow-hidden rounded-[28px] border border-[#cfd8cb] shadow-[0_14px_38px_rgba(31,53,62,.08)]">
-          <MissionMap mission={mission} fix={null} interactive={false} />
-          <div className="pointer-events-none absolute bottom-3 left-3 right-3 sm:bottom-5 sm:left-5 sm:right-5 z-[500] flex items-end justify-between gap-3"><div className="flex-1 rounded-2xl bg-[#f4f0e6]/90 p-3 sm:p-4 backdrop-blur-sm min-w-0"><p className="font-mono text-[8px] sm:text-[9px] uppercase tracking-[.14em] sm:tracking-[.18em] text-[#668078]">search area</p><p className="mt-0.5 sm:mt-1 font-display text-base sm:text-lg font-bold text-[#20373f] truncate">{mission.area}</p><p className="text-xs text-[#718078] truncate">{mission.city}</p></div><div className="shrink-0 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-full bg-[#173640] text-[#f1c66b]"><Compass size={18} className="sm:size-5" /></div></div>
-        </div>
+
+        {/* 現在地周辺カード：最も近い地域を大きく表示 */}
+        <button
+          type="button"
+          onClick={() => gotoFirstMissionOrAuth(nearest.id)}
+          className="group relative flex min-h-[360px] flex-col justify-between overflow-hidden rounded-[28px] border border-[#cfd8cb] bg-white text-left shadow-[0_14px_38px_rgba(31,53,62,.08)] transition-transform hover:-translate-y-1 sm:min-h-[425px]"
+          data-testid="card-nearby-region"
+        >
+          <div className="relative h-44 sm:h-56 overflow-hidden rounded-t-[28px] bg-gradient-to-br from-[#d9e5dc] via-[#e7e8de] to-[#f1c66b]/20">
+            <div className="absolute inset-0 opacity-60" aria-hidden>
+              <svg viewBox="0 0 400 300" className="h-full w-full">
+                <path d="M40 240C120 180 200 260 280 210S380 160 400 190" fill="none" stroke="#1e7471" strokeWidth="2" strokeDasharray="4 8" opacity=".45" />
+                <circle cx="130" cy="150" r="28" fill="#f4f0e6" stroke="#1e7471" strokeWidth="2" />
+                <circle cx="250" cy="110" r="18" fill="#f4f0e6" stroke="#e47750" strokeWidth="2" />
+                <circle cx="330" cy="220" r="14" fill="#f4f0e6" stroke="#f1c66b" strokeWidth="3" />
+              </svg>
+            </div>
+            <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-[#173640]/90 px-3 py-1.5 text-[10px] font-bold text-[#f1c66b] backdrop-blur-sm sm:left-5 sm:top-5 sm:text-[11px]"><MapPinned size={13} /> 現在地周辺</div>
+            <div className="absolute right-4 top-4 flex h-10 w-10 shrink-0 place-items-center rounded-full bg-[#173640] text-[#f1c66b] sm:right-5 sm:top-5 sm:h-11 sm:w-11"><Compass size={18} className="sm:size-5" /></div>
+          </div>
+          <div className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[.18em] text-[#668078]">{nearest.name}</p>
+                <h2 className="mt-1 min-w-0 break-words font-display text-2xl font-extrabold sm:text-3xl">{nearest.shortName}</h2>
+                <p className="mt-2 text-sm leading-6 text-[#718078]">{nearest.tagline}</p>
+              </div>
+            </div>
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#668078]">missions unlocked</p>
+                <p className="mt-1 font-display text-2xl font-extrabold text-[#176a69]">
+                  {String(nearestStats.discovered).padStart(2, '0')}
+                  <span className="mx-1 text-[#cdd5c8]">/</span>
+                  <span className="text-xl font-bold text-[#668078]">{String(nearestStats.total).padStart(2, '0')}</span>
+                </p>
+              </div>
+              <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#e47750] px-4 py-2.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b] transition-transform group-hover:translate-x-0.5">
+                {!session ? '旅をはじめる' : nearestStats.total === 0 ? '地域を見る' : nearestStats.discovered === nearestStats.total ? 'もう一度歩く' : '探索する'}
+                <ChevronRight size={16} />
+              </span>
+            </div>
+          </div>
+        </button>
       </section>
-      <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <StatCard icon={Target} number={String(discoveredCount).padStart(2, '0')} label="見つけた一点" accent="teal" />
-        <StatCard icon={RouteIcon} number={String(publishedMissions.length).padStart(2, '0')} label="公開中のミッション" accent="gold" />
-        <StatCard icon={Clock3} number={`${mission.estimatedMinutes}分`} label="このミッションの目安" accent="coral" />
-      </section>
+
+      {/* 探索できる地域 グリッド */}
       <section className="mt-12">
-        <div className="flex items-end justify-between"><div><p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.24em] text-[#668078]">missions</p><h2 className="font-display text-3xl font-extrabold leading-tight tracking-[-.03em]">ミッションを選ぶ。</h2></div></div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {publishedMissions.map((candidate, index) => {
-            const state = allProgress[candidate.id] ?? emptyProgress;
-            const active = candidate.id === mission.id;
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.24em] text-[#668078]">regions</p>
+            <h2 className="font-display text-3xl font-extrabold leading-tight tracking-[-.03em]">探索できる地域。</h2>
+          </div>
+          <Link href={session ? `/region/${nearest.id}` : '/auth'} className="hidden items-center gap-1.5 text-xs font-bold text-[#176a69] underline-offset-4 hover:underline sm:inline-flex" data-testid="link-view-all-regions">
+            地図から選ぶ<ChevronRight size={14} />
+          </Link>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {sortedRegions.map((region) => {
+            const stats = regionMissionStats(region.id, allProgress);
+            const isComingSoon = region.status === 'coming-soon';
+            const progressPct = stats.total > 0 ? (stats.discovered / stats.total) * 100 : 0;
             return (
-              <button key={candidate.id} type="button" onClick={() => setMission(candidate)} data-testid={`button-select-mission-${candidate.id}`} className={`rounded-2xl border p-5 text-left transition-transform hover:-translate-y-1 ${active ? 'border-[#1e7471] bg-[#e4efe8]' : 'border-[#dedfd4] bg-[#f9f7f0]'}`}>
-                <div className="flex items-center justify-between"><span className="font-mono text-[10px] text-[#dd7552]">{String(index + 1).padStart(2, '0')} / {candidate.city}</span>{state.discovered ? <span className="rounded-full bg-[#d9e9dd] px-2.5 py-1 text-[10px] font-bold text-[#1e7471]">発見済み</span> : <span className="rounded-full bg-[#eee7d2] px-2.5 py-1 text-[10px] font-bold text-[#a7761f]">{candidate.difficulty === 'easy' ? 'やさしい' : candidate.difficulty === 'hard' ? 'むずかしい' : 'ふつう'}</span>}</div>
-                <h3 className="mt-5 font-display text-lg font-bold">{candidate.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-[#718078]">「{candidate.clue}」</p>
-                <p className="mt-3 text-xs text-[#8b968e]">{candidate.area} · 目安 {candidate.estimatedMinutes}分 · 判定 {candidate.discoveryRadius}m</p>
+              <button
+                key={region.id}
+                type="button"
+                disabled={isComingSoon}
+                onClick={() => (isComingSoon ? undefined : gotoRegion(region.id))}
+                className={`group relative flex flex-col overflow-hidden rounded-3xl border p-5 text-left transition-all ${
+                  isComingSoon ? 'cursor-not-allowed border-[#e2e4d9] bg-[#f5f2e9] opacity-80' : 'border-[#dedfd4] bg-[#f9f7f0] hover:-translate-y-1 hover:border-[#1e7471]/40 hover:bg-white'
+                }`}
+                data-testid={`card-region-${region.id}`}
+              >
+                <div className="mb-4 flex items-start justify-between gap-2">
+                  <span className={`grid h-11 w-11 place-items-center rounded-2xl ${isComingSoon ? 'bg-[#e9e8df] text-[#98a39b]' : 'bg-[#d7e7df] text-[#1e7471]'}`}>
+                    {isComingSoon ? <CircleHelp size={20} /> : <MapPinned size={20} />}
+                  </span>
+                  {isComingSoon ? (
+                    <span className="rounded-full bg-[#173640]/90 px-2.5 py-1 text-[10px] font-bold text-[#f1c66b]">Coming Soon</span>
+                  ) : stats.discovered > 0 ? (
+                    <span className="rounded-full bg-[#d9e9dd] px-2.5 py-1 text-[10px] font-bold text-[#1e7471]">{stats.discovered} / {stats.total} 発見</span>
+                  ) : (
+                    <span className="rounded-full bg-[#eee7d2] px-2.5 py-1 text-[10px] font-bold text-[#a7761f]">{stats.total} つの謎</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#668078]">{region.name}</p>
+                  <h3 className={`mt-1 truncate font-display text-xl font-extrabold ${isComingSoon ? 'text-[#667771]' : 'text-[#173640]'}`}>
+                    {isComingSoon ? '???' : region.shortName}
+                  </h3>
+                  <p className={`mt-2 line-clamp-2 text-xs leading-6 ${isComingSoon ? 'text-[#8a978d]' : 'text-[#718078]'}`}>
+                    {isComingSoon ? '準備中です。もう少々お待ちください。' : region.tagline}
+                  </p>
+                </div>
+                <div className="mt-5">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-[#668078]">
+                    <span>progress</span>
+                    <span>{stats.discovered} / {stats.total}</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e6e8dd]">
+                    <div
+                      className={`h-full rounded-full transition-all ${isComingSoon ? 'bg-[#cdd5c8]' : progressPct === 100 ? 'bg-[#1e7471]' : 'bg-[#e47750]'}`}
+                      style={{ width: `${isComingSoon ? 0 : progressPct}%` }}
+                    />
+                  </div>
+                </div>
               </button>
             );
           })}
         </div>
       </section>
+
+      {/* How it works */}
       <section className="mt-12 grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
-        <div><p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.24em] text-[#668078]">how it works</p><h2 className="font-display text-3xl font-extrabold leading-tight tracking-[-.03em]">4つのステップで、<br />街の一点を見つける。</h2><p className="mt-4 max-w-sm text-sm leading-7 text-[#65756e]">答えを検索するのではなく、足で近づき、目で確かめる。GeoPuzzleは旅を小さな冒険に変えます。</p></div>
+        <div>
+          <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.24em] text-[#668078]">how it works</p>
+          <h2 className="font-display text-3xl font-extrabold leading-tight tracking-[-.03em]">地域 → ミッション → 発見。<br />情報は、歩くたびに解放される。</h2>
+          <p className="mt-4 max-w-sm text-sm leading-7 text-[#65756e]">
+            ホームでは「場所」は表示しません。地域を選び、地図に現れたミッションを選び、ヒントを頼りに自分の足で一点を見つける。はじめて、そこがどこだったのかが明かされます。
+          </p>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <StepCard index="01" title="手がかりを読む" text="場所を示す短い謎を受け取る。" icon={Eye} /><StepCard index="02" title="歩いて近づく" text="地図と現在地を頼りに、答えのそばへ。" icon={Navigation} /><StepCard index="03" title="一点に立つ" text="判定範囲に入ると、発見が解放される。" icon={Crosshair} /><StepCard index="04" title="物語を受け取る" text="その場所だけの話とスタンプを記録する。" icon={Stamp} />
+          <StepCard index="01" title="地域を選ぶ" text="探索できる地域の中から、次の目的地を選ぶ。" icon={MapPinned} />
+          <StepCard index="02" title="地図から謎を選ぶ" text="地図上に散らばった MISSION をタップして選択。" icon={Compass} />
+          <StepCard index="03" title="歩いて一点に立つ" text="ヒントと現在地を頼りに、答えのそばへ。" icon={Navigation} />
+          <StepCard index="04" title="場所の名前を知る" text="発見後にはじめて、地名と物語が解放される。" icon={Stamp} />
         </div>
       </section>
     </main>
+  );
+}
+
+function StatCardDark({ icon: Icon, number, label, accent = 'teal' }: { icon: LucideIcon; number: string; label: string; accent?: 'teal' | 'coral' }) {
+  const colors: Record<string, string> = {
+    teal: 'bg-[#244950] text-[#a9d1bd] ring-1 ring-[#3a666b]',
+    coral: 'bg-[#4a2e27] text-[#f2b69a] ring-1 ring-[#6d4a41]',
+  };
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-[#2c4f56] bg-[#1a3c46] p-4">
+      <div className={`grid h-11 w-11 place-items-center rounded-xl ${colors[accent]}`}><Icon size={20} /></div>
+      <div>
+        <p className="font-display text-2xl font-extrabold text-[#f4f0e6]">{number}</p>
+        <p className="text-xs text-[#98aca2]">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- RegionPage: 地域選択後の地図 ---------------- */
+
+function RegionPage({ regionId, session }: { regionId: string; session: Session | null }) {
+  const [, setLocation] = useLocation();
+  const { setMission } = useActiveMission();
+  const region = findRegion(regionId);
+  const allProgress = readAllProgress();
+
+  useEffect(() => {
+    if (!region || region.status !== 'available') setLocation('/');
+  }, [region, setLocation]);
+
+  if (!region) return null;
+
+  const regionMissions = missionsByRegion(region.id);
+  const areas = areasByRegion(region.id);
+  const stats = regionMissionStats(region.id, allProgress);
+
+  const selectMission = (mission: Mission) => {
+    if (!session) {
+      setLocation('/auth');
+      return;
+    }
+    setMission(mission);
+    const p = allProgress[mission.id] ?? emptyProgress;
+    if (p.discovered && !p.completed) setLocation('/discover');
+    else setLocation('/navigate');
+  };
+
+  const missionEntries = regionMissions.map((mission, idx) => {
+    const p = allProgress[mission.id] ?? emptyProgress;
+    const state: 'undiscovered' | 'discovered' | 'completed' = p.completed ? 'completed' : p.discovered ? 'discovered' : 'undiscovered';
+    return { mission, index: idx + 1, state, onSelect: () => selectMission(mission) };
+  });
+
+  return (
+    <main className="mx-auto max-w-[1240px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+6rem)] pt-6 sm:px-8 sm:pt-10">
+      <div className="mb-6 flex flex-wrap items-center gap-3 sm:gap-4">
+        <Link href="/" className="flex items-center gap-1.5 rounded-full border border-[#d4d8cc] bg-white px-3 py-2 text-xs font-bold text-[#48625f] transition-colors hover:bg-[#f1efde]" data-testid="link-back-home"><ChevronRight size={14} className="rotate-180" />ホームへ</Link>
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#668078]">{region.name} / region map</p>
+          <h1 className="mt-1 min-w-0 break-words font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl">{region.shortName} · 探索マップ</h1>
+        </div>
+        <div className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${stats.discovered === stats.total ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`}>
+          {stats.discovered} / {stats.total} 発見
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.25fr_.75fr]">
+        <div className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-[#cfd8cb] sm:min-h-[520px]">
+          <MissionMap mode="region" region={region} missions={missionEntries} />
+          <div className="pointer-events-none absolute bottom-4 left-4 z-[500] rounded-2xl bg-[#f4f0e6]/95 p-3 backdrop-blur-sm sm:bottom-5 sm:left-5 sm:p-4">
+            <p className="font-mono text-[8px] uppercase tracking-[.16em] text-[#668078] sm:text-[9px]">exploration map</p>
+            <p className="mt-1 text-sm font-bold sm:text-base">{region.shortName} の {regionMissions.length} つの謎</p>
+            <p className="mt-1 text-[11px] text-[#718078] sm:text-xs">タップして、それぞれのミッションを始めよう。</p>
+          </div>
+        </div>
+
+        <aside className="space-y-5">
+          <div className="rounded-[28px] bg-[#173640] p-5 text-[#f4f0e6] sm:p-6">
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-[#31555a] px-3 py-1 font-mono text-[9px] uppercase tracking-[.16em] text-[#a9c1b2]">overview</span>
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1c66b] text-[#173640]"><Target size={17} /></span>
+            </div>
+            <h2 className="mt-6 font-display text-2xl font-extrabold leading-snug text-[#f1c66b]">{region.tagline}</h2>
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              <MiniStat label="地域" value={region.shortName} />
+              <MiniStat label="エリア" value={String(areas.length)} />
+              <MiniStat label="ミッション" value={String(regionMissions.length)} />
+            </div>
+            <div className="mt-6">
+              <div className="flex items-center justify-between text-[10px] font-bold text-[#8fa99b]">
+                <span>PROGRESS</span>
+                <span>{stats.discovered} / {stats.total}</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#2c4f56]">
+                <div
+                  className="h-full rounded-full bg-[#f1c66b]"
+                  style={{ width: stats.total > 0 ? `${(stats.discovered / stats.total) * 100}%` : '0%' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {regionMissions.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-[#d4d8cc] bg-white p-6 text-center">
+                <p className="text-sm font-bold text-[#668078]">この地域にはまだミッションがありません。</p>
+                <p className="mt-1 text-xs text-[#8a978d]">続報をお楽しみに。</p>
+              </div>
+            )}
+            {regionMissions.map((mission, index) => {
+              const p = allProgress[mission.id] ?? emptyProgress;
+              const state: 'undiscovered' | 'discovered' | 'completed' = p.completed ? 'completed' : p.discovered ? 'discovered' : 'undiscovered';
+              // MISSION 01 だけはタイトルを見せ、2つ目以降は「？？？」にする（提案2のハイブリッド）
+              const titleShown = state !== 'undiscovered' || index === 0;
+              const tone =
+                state === 'completed'
+                  ? 'border-[#1e7471] bg-[#e4efe8]'
+                  : state === 'discovered'
+                    ? 'border-[#e09b3b] bg-[#f8efd4]'
+                    : 'border-[#dedfd4] bg-[#f9f7f0]';
+              return (
+                <button
+                  key={mission.id}
+                  type="button"
+                  onClick={() => selectMission(mission)}
+                  className={`group flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${tone}`}
+                  data-testid={`button-region-mission-${mission.id}`}
+                >
+                  <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-[#173640] text-[#f1c66b]">
+                    <span className="font-mono text-[8px] uppercase tracking-[.16em]">No.</span>
+                    <span className="font-display text-sm font-extrabold leading-none">{String(index + 1).padStart(2, '0')}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-[9px] uppercase tracking-[.14em] text-[#668078]">Mission {String(index + 1).padStart(2, '0')}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        state === 'completed' ? 'bg-[#d9e9dd] text-[#1e7471]' :
+                        state === 'discovered' ? 'bg-[#eee7d2] text-[#a7761f]' :
+                        'bg-[#e9e8df] text-[#8a978d]'
+                      }`}>
+                        {state === 'completed' ? '発見済み' : state === 'discovered' ? '発見・未完了' : '未発見'}
+                      </span>
+                    </div>
+                    <h3 className="mt-1 truncate font-display text-lg font-bold text-[#173640]">
+                      {titleShown ? mission.title : '？？？'}
+                    </h3>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-[#718078]">
+                      {titleShown ? `手がかり：「${mission.clue}」` : 'まだ手がかりは隠されています。'}
+                    </p>
+                  </div>
+                  <ChevronRight size={18} className="shrink-0 text-[#1e7471] transition-transform group-hover:translate-x-1" />
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
+    </main>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#2c4f56] bg-[#1e3c46] px-3 py-2.5 text-center">
+      <p className="font-mono text-[8px] uppercase tracking-[.18em] text-[#8fa99b]">{label}</p>
+      <p className="mt-0.5 truncate font-display text-sm font-extrabold text-[#f4f0e6]">{value}</p>
+    </div>
   );
 }
 
@@ -400,11 +705,16 @@ function NavigatePage({ mission }: { mission: Mission }) {
           ? 'みちびき受信中…'
           : '現在地を取得中';
 
-  return <main className="mx-auto max-w-[1240px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-6 sm:px-8 sm:pt-10"><div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div className="min-w-0"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl break-words">{mission.title}</h1></div><div className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${fix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${fix ? (usingQzss ? 'bg-[#e05c35]' : 'bg-[#1e7471]') : 'bg-[#a7761f] animate-pulse'}`} />{positioningLabel}</div></div>
+  const region = findRegion(mission.regionId);
+  return <main className="mx-auto max-w-[1240px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-6 sm:px-8 sm:pt-10">
+    <div className="mb-6 flex flex-wrap items-center gap-3 sm:gap-4">
+      <Link href={`/region/${mission.regionId}`} className="flex items-center gap-1.5 rounded-full border border-[#d4d8cc] bg-white px-3 py-2 text-xs font-bold text-[#48625f] transition-colors hover:bg-[#f1efde]" data-testid="link-back-region"><ChevronRight size={14} className="rotate-180" />地域へ戻る</Link>
+    </div>
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div className="min-w-0"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl break-words">{mission.title}</h1></div><div className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${fix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${fix ? (usingQzss ? 'bg-[#e05c35]' : 'bg-[#1e7471]') : 'bg-[#a7761f] animate-pulse'}`} />{positioningLabel}</div></div>
     <div className="grid gap-6 lg:grid-cols-[1.32fr_.68fr]">
       <div className="relative min-h-[380px] overflow-hidden rounded-[28px] border border-[#cfd8cb] sm:min-h-[420px] lg:min-h-[560px]">
         <MissionMap mission={mission} fix={fix} revealGoal={canDiscover} />
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-2xl bg-[#f4f0e6]/90 px-3 py-2 backdrop-blur-sm sm:bottom-5 sm:left-5 sm:px-4 sm:py-3"><p className="font-mono text-[8px] uppercase tracking-[.12em] text-[#668078] sm:text-[9px] sm:tracking-[.15em]">search area</p><p className="mt-0.5 text-xs font-bold sm:text-sm">{mission.city} {mission.area}</p></div>
+        <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-2xl bg-[#f4f0e6]/90 px-3 py-2 backdrop-blur-sm sm:bottom-5 sm:left-5 sm:px-4 sm:py-3"><p className="font-mono text-[8px] uppercase tracking-[.12em] text-[#668078] sm:text-[9px] sm:tracking-[.15em]">search area</p><p className="mt-0.5 text-xs font-bold sm:text-sm break-words">{region?.name ?? ''}</p></div>
         {bearing !== null && <div className="pointer-events-none absolute right-3 top-3 z-[500] flex items-center gap-1.5 rounded-xl bg-[#173640] px-2.5 py-1.5 font-mono text-[9px] text-[#f1c66b] sm:right-5 sm:top-5 sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px]" data-testid="status-bearing"><Navigation size={11} className="sm:size-[12px]" style={{ transform: `rotate(${bearing - 45}deg)` }} />{compassLabel(bearing)}</div>}
       </div>
       <aside className="rounded-[28px] bg-[#173640] p-5 text-[#f4f0e6] sm:p-6 lg:p-8">
@@ -560,7 +870,7 @@ function DiscoverPage({ mission }: { mission: Mission }) {
     <div className="mb-8 animate-rise"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#1e7471]">{missionLabel(mission)} / discovered</p><h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em] sm:text-5xl">発見。</h1><p className="mt-3 text-sm text-[#718078]">この一点に立った人だけが受け取れる話です。</p></div>
     <article className="animate-rise delay-2 overflow-hidden rounded-[30px] bg-[#173640] text-[#f4f0e6] shadow-[0_22px_55px_rgba(26,57,64,.16)]">
       <div className="relative h-56 sm:h-72"><MissionMap mission={mission} fix={null} revealGoal interactive={false} /><div className="pointer-events-none absolute inset-0 z-[500] bg-gradient-to-t from-[#173640] via-[#173640]/40 to-transparent" /><div className="pointer-events-none absolute bottom-5 left-6 z-[500] flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-[#f1c66b] text-[#173640] shadow-[0_0_0_10px_rgba(241,198,107,.14)]"><Stamp size={22} /></span><div><p className="font-mono text-[9px] uppercase tracking-[.2em] text-[#f1c66b]">{mission.discovery.stamp}</p><p className="font-display text-xl font-bold">{mission.name}</p></div></div></div>
-      <div className="px-6 pb-8 pt-4 sm:px-10 sm:pb-10"><h2 className="font-display text-2xl font-extrabold leading-snug text-[#f1c66b] sm:text-3xl" data-testid="text-discovery-headline">{mission.discovery.headline}</h2><p className="mt-5 max-w-xl text-sm leading-8 text-[#d3e1d2]" data-testid="text-discovery-story">{mission.discovery.story}</p><div className="mt-8 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">place</p><p className="mt-2 text-sm font-bold">{mission.city}</p></div><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">discovered</p><p className="mt-2 text-sm font-bold">{formatDate(progress.discoveredAt)}</p></div><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">hints used</p><p className="mt-2 text-sm font-bold">{progress.hintsRevealed} / {mission.hints.length}</p></div></div></div>
+      <div className="px-6 pb-8 pt-4 sm:px-10 sm:pb-10"><h2 className="font-display text-2xl font-extrabold leading-snug text-[#f1c66b] sm:text-3xl" data-testid="text-discovery-headline">{mission.discovery.headline}</h2><p className="mt-5 max-w-xl text-sm leading-8 text-[#d3e1d2]" data-testid="text-discovery-story">{mission.discovery.story}</p><div className="mt-8 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">place</p><p className="mt-2 text-sm font-bold">{findRegion(mission.regionId)?.name ?? ''}</p></div><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">discovered</p><p className="mt-2 text-sm font-bold">{formatDate(progress.discoveredAt)}</p></div><div className="rounded-2xl bg-[#244950] p-4"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">hints used</p><p className="mt-2 text-sm font-bold">{progress.hintsRevealed} / {mission.hints.length}</p></div></div></div>
     </article>
     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
       <button type="button" onClick={finish} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-finish-mission"><Check size={18} />記録して完了する</button>
@@ -606,17 +916,19 @@ function CapturePage({ mission }: { mission: Mission }) {
     updateProgress((current) => ({ ...current, completed: true, completedAt: current.completedAt ?? new Date().toISOString() }));
     setLocation('/complete');
   };
-  return <main className="mx-auto max-w-[900px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+6rem)] pt-8 sm:px-8 sm:pt-12"><div className="mb-8"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / memory</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl">見つけた瞬間を残す。</h1><p className="mt-3 text-sm text-[#718078]">写真は任意です。撮らなくても発見は記録されています。</p></div><div className="overflow-hidden rounded-[28px] bg-[#173640] p-2 shadow-[0_22px_55px_rgba(26,57,64,.16)]"><div className="relative min-h-[460px] overflow-hidden rounded-[22px] bg-[#284b52]">{cameraState === 'live' && <video ref={videoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" aria-label="カメラプレビュー" data-testid="video-camera-preview" />}{cameraState === 'captured' && <div className="absolute inset-0 bg-[linear-gradient(135deg,#3d6b68,#d07858_58%,#f1c66b)]"><div className="absolute left-[12%] top-[18%] h-40 w-32 rotate-[-9deg] rounded-[45%_45%_8%_8%] bg-[#e9d9bc]/70" /><div className="absolute bottom-[15%] right-[12%] h-44 w-44 rounded-full border-[18px] border-[#173640]/30" /><div className="absolute inset-0 bg-[#173640]/10" /></div>}{cameraState === 'idle' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#3d6b68,#173640_70%)] px-6 text-center"><div className="grid h-20 w-20 place-items-center rounded-full border border-[#f1c66b]/50 text-[#f1c66b]"><Camera size={31} strokeWidth={1.5} /></div><p className="mt-7 font-display text-2xl font-bold text-[#f4f0e6]">{mission.name}をフレームに</p><p className="mt-2 max-w-xs text-sm leading-6 text-[#adc2b1]">カメラを起動して、発見の記念を一枚。</p></div>}{cameraState === 'fallback' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#244950] px-6 text-center"><div className="grid h-16 w-16 place-items-center rounded-full bg-[#f1c66b] text-[#173640]"><Info size={27} /></div><p className="mt-6 font-display text-2xl font-bold text-[#f4f0e6]">カメラなしでも大丈夫</p><p className="mt-2 max-w-sm text-sm leading-6 text-[#b7c8bb]">{cameraMessage}</p></div>}{cameraState === 'live' && <div className="pointer-events-none absolute inset-7 border border-[#f4f0e6]/60"><span className="absolute left-0 top-0 h-7 w-7 border-l-2 border-t-2 border-[#f1c66b]" /><span className="absolute right-0 top-0 h-7 w-7 border-r-2 border-t-2 border-[#f1c66b]" /><span className="absolute bottom-0 left-0 h-7 w-7 border-b-2 border-l-2 border-[#f1c66b]" /><span className="absolute bottom-0 right-0 h-7 w-7 border-b-2 border-r-2 border-[#f1c66b]" /></div>}{cameraState === 'captured' && <div className="absolute bottom-5 left-5 rounded-xl bg-[#173640]/80 px-4 py-3 text-[#f4f0e6] backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#f1c66b]">memory saved</p><p className="mt-1 text-sm font-bold">{formatDate(new Date().toISOString())} / {mission.area}</p></div>}</div></div><div className="mt-6 flex flex-col gap-3 sm:flex-row">{cameraState === 'idle' && <button type="button" onClick={startCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-start-camera"><Camera size={18} />カメラを起動</button>}{cameraState === 'live' && <button type="button" onClick={capture} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-capture-photo"><Camera size={18} />撮影する</button>}{cameraState === 'fallback' && <button type="button" onClick={finishWithoutCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-use-field-note"><Check size={18} />記念メモで残す</button>}{cameraState === 'captured' && <button type="button" onClick={complete} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-complete-mission">ミッションを完了する<ChevronRight size={18} /></button>}<button type="button" onClick={complete} className="flex items-center justify-center rounded-xl border border-[#cdd6ca] bg-[#f9f7f0] px-5 py-3.5 text-sm font-bold text-[#536b65]" data-testid="button-skip-photo">写真なしで完了する</button></div></main>;
+  const regionName = findRegion(mission.regionId)?.name ?? '';
+  return <main className="mx-auto max-w-[900px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+6rem)] pt-8 sm:px-8 sm:pt-12"><div className="mb-8"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / memory</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl">見つけた瞬間を残す。</h1><p className="mt-3 text-sm text-[#718078]">写真は任意です。撮らなくても発見は記録されています。</p></div><div className="overflow-hidden rounded-[28px] bg-[#173640] p-2 shadow-[0_22px_55px_rgba(26,57,64,.16)]"><div className="relative min-h-[460px] overflow-hidden rounded-[22px] bg-[#284b52]">{cameraState === 'live' && <video ref={videoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" aria-label="カメラプレビュー" data-testid="video-camera-preview" />}{cameraState === 'captured' && <div className="absolute inset-0 bg-[linear-gradient(135deg,#3d6b68,#d07858_58%,#f1c66b)]"><div className="absolute left-[12%] top-[18%] h-40 w-32 rotate-[-9deg] rounded-[45%_45%_8%_8%] bg-[#e9d9bc]/70" /><div className="absolute bottom-[15%] right-[12%] h-44 w-44 rounded-full border-[18px] border-[#173640]/30" /><div className="absolute inset-0 bg-[#173640]/10" /></div>}{cameraState === 'idle' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#3d6b68,#173640_70%)] px-6 text-center"><div className="grid h-20 w-20 place-items-center rounded-full border border-[#f1c66b]/50 text-[#f1c66b]"><Camera size={31} strokeWidth={1.5} /></div><p className="mt-7 font-display text-2xl font-bold text-[#f4f0e6]">{mission.name}をフレームに</p><p className="mt-2 max-w-xs text-sm leading-6 text-[#adc2b1]">カメラを起動して、発見の記念を一枚。</p></div>}{cameraState === 'fallback' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#244950] px-6 text-center"><div className="grid h-16 w-16 place-items-center rounded-full bg-[#f1c66b] text-[#173640]"><Info size={27} /></div><p className="mt-6 font-display text-2xl font-bold text-[#f4f0e6]">カメラなしでも大丈夫</p><p className="mt-2 max-w-sm text-sm leading-6 text-[#b7c8bb]">{cameraMessage}</p></div>}{cameraState === 'live' && <div className="pointer-events-none absolute inset-7 border border-[#f4f0e6]/60"><span className="absolute left-0 top-0 h-7 w-7 border-l-2 border-t-2 border-[#f1c66b]" /><span className="absolute right-0 top-0 h-7 w-7 border-r-2 border-t-2 border-[#f1c66b]" /><span className="absolute bottom-0 left-0 h-7 w-7 border-b-2 border-l-2 border-[#f1c66b]" /><span className="absolute bottom-0 right-0 h-7 w-7 border-b-2 border-r-2 border-[#f1c66b]" /></div>}{cameraState === 'captured' && <div className="absolute bottom-5 left-5 rounded-xl bg-[#173640]/80 px-4 py-3 text-[#f4f0e6] backdrop-blur-sm"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#f1c66b]">memory saved</p><p className="mt-1 text-sm font-bold">{formatDate(new Date().toISOString())} / {regionName}</p></div>}</div></div><div className="mt-6 flex flex-col gap-3 sm:flex-row">{cameraState === 'idle' && <button type="button" onClick={startCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-start-camera"><Camera size={18} />カメラを起動</button>}{cameraState === 'live' && <button type="button" onClick={capture} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-capture-photo"><Camera size={18} />撮影する</button>}{cameraState === 'fallback' && <button type="button" onClick={finishWithoutCamera} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-use-field-note"><Check size={18} />記念メモで残す</button>}{cameraState === 'captured' && <button type="button" onClick={complete} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-complete-mission">ミッションを完了する<ChevronRight size={18} /></button>}<button type="button" onClick={complete} className="flex items-center justify-center rounded-xl border border-[#cdd6ca] bg-[#f9f7f0] px-5 py-3.5 text-sm font-bold text-[#536b65]" data-testid="button-skip-photo">写真なしで完了する</button></div></main>;
 }
 
 function CompletePage({ mission }: { mission: Mission }) {
   const [, setLocation] = useLocation();
   const [progress, updateProgress] = useProgress(mission.id);
+  const region = findRegion(mission.regionId);
   useEffect(() => {
     if (!progress.discovered) { setLocation('/navigate'); return; }
     if (!progress.completed) updateProgress({ completed: true, completedAt: new Date().toISOString() });
   }, [progress.discovered, progress.completed, setLocation, updateProgress]);
-  return <main className="mx-auto max-w-[900px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+6rem)] pt-12 sm:px-8 sm:pt-20"><div className="relative overflow-hidden rounded-[30px] bg-[#173640] px-6 py-14 text-center text-[#f4f0e6] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:px-16"><div className="absolute left-[12%] top-[-30px] h-28 w-28 rounded-full border border-[#f1c66b]/20" /><div className="absolute bottom-[-70px] right-[8%] h-48 w-48 rounded-full border border-[#f1c66b]/15" /><div className="relative"><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[#f1c66b] text-[#173640] shadow-[0_0_0_12px_rgba(241,198,107,.14)] animate-rise"><Check size={38} strokeWidth={3} /></div><p className="mt-9 font-mono text-[10px] uppercase tracking-[.28em] text-[#f1c66b]">mission complete</p><h1 className="mt-4 font-display text-4xl font-extrabold tracking-[-.04em] sm:text-6xl">見つけた。</h1><p className="mx-auto mt-5 max-w-md text-sm leading-7 text-[#b7c8bb]">{mission.area}を歩いて、{mission.name}の一点に到達しました。今日の景色は、あなたのコレクションになりました。</p><div className="mx-auto mt-10 max-w-sm rounded-2xl bg-[#244950] p-4 text-left"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">collection +1</p><div className="mt-3 flex items-center justify-between"><div><p className="font-display text-xl font-bold">{mission.name}</p><p className="mt-1 text-xs text-[#a9c1b2]">{mission.city} / {formatDate(progress.discoveredAt)}</p></div><MapPinned size={23} className="text-[#f1c66b]" /></div></div><div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" onClick={() => setLocation('/')} className="rounded-xl bg-[#e47750] px-6 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-back-home">次のミッションへ<ChevronRight size={16} className="ml-2 inline" /></button><Link href="/profile" className="rounded-xl border border-[#54736d] px-6 py-3.5 text-sm font-bold text-[#f4f0e6]" data-testid="link-view-record">記録を見る</Link></div></div></div></main>;
+  return <main className="mx-auto max-w-[900px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+6rem)] pt-12 sm:px-8 sm:pt-20"><div className="relative overflow-hidden rounded-[30px] bg-[#173640] px-6 py-14 text-center text-[#f4f0e6] shadow-[0_22px_55px_rgba(26,57,64,.16)] sm:px-16"><div className="absolute left-[12%] top-[-30px] h-28 w-28 rounded-full border border-[#f1c66b]/20" /><div className="absolute bottom-[-70px] right-[8%] h-48 w-48 rounded-full border border-[#f1c66b]/15" /><div className="relative"><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[#f1c66b] text-[#173640] shadow-[0_0_0_12px_rgba(241,198,107,.14)] animate-rise"><Check size={38} strokeWidth={3} /></div><p className="mt-9 font-mono text-[10px] uppercase tracking-[.28em] text-[#f1c66b]">mission complete</p><h1 className="mt-4 font-display text-4xl font-extrabold tracking-[-.04em] sm:text-6xl">見つけた。</h1><p className="mx-auto mt-5 max-w-md text-sm leading-7 text-[#b7c8bb]">{region?.shortName ?? ''}を歩いて、{mission.name}の一点に到達しました。今日の景色は、あなたのコレクションになりました。</p><div className="mx-auto mt-10 max-w-sm rounded-2xl bg-[#244950] p-4 text-left"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#9cb5a6]">collection +1</p><div className="mt-3 flex items-center justify-between"><div><p className="font-display text-xl font-bold">{mission.name}</p><p className="mt-1 text-xs text-[#a9c1b2]">{region?.name ?? ''} / {formatDate(progress.discoveredAt)}</p></div><MapPinned size={23} className="text-[#f1c66b]" /></div></div><div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" onClick={() => setLocation(`/region/${mission.regionId}`)} className="rounded-xl bg-[#e47750] px-6 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b]" data-testid="button-back-region">次のミッションへ<ChevronRight size={16} className="ml-2 inline" /></button><Link href="/profile" className="rounded-xl border border-[#54736d] px-6 py-3.5 text-sm font-bold text-[#f4f0e6]" data-testid="link-view-record">記録を見る</Link></div></div></div></main>;
 }
 
 function ProfilePage({ session, onSignOut }: { session: Session | null; onSignOut: () => void }) {
