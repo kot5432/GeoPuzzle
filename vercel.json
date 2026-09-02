@@ -1,5 +1,5 @@
 {
-  "installCommand": "corepack enable && corepack pnpm install --frozen-lockfile",
+  "installCommand": "npm install -g pnpm@10.26.1 && pnpm install --frozen-lockfile",
   "buildCommand": "BASE_PATH=/ PORT=3000 pnpm --filter @workspace/geo-puzzle run build",
   "outputDirectory": "artifacts/geo-puzzle/dist/public",
   "framework": "vite",
