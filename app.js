@@ -175,7 +175,7 @@ function ensureMapsMounted(screenName) {
 
   if (!homeMap) {
     homeMap = (typeof GeoMap !== 'undefined' && GeoMap.mount)
-      ? GeoMap.mount('#home-map-container', { center, zoom: MAP_CONFIG.zoom }).catch(err => {
+      ? GeoMap.mount('#home-map-container', { center, zoom: MAP_CONFIG.zoom, minZoom: 9 }).catch(err => {
           console.warn('[homeMap] mount failed:', err?.message);
           return null;
         })
@@ -958,29 +958,35 @@ function renderMissionAreasOnHomeMap() {
       }
     });
 
+    // Add layer for mission points (background circle for visibility)
+    nativeMap.addLayer({
+      id: 'mission-areas-bg',
+      type: 'circle',
+      source: 'mission-areas',
+      paint: {
+        'circle-radius': 18,
+        'circle-color': ['case', ['==', ['get', 'status'], 'completed'], '#4CAF50', '#FFC107'],
+        'circle-opacity': 0.9,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2.5
+      }
+    });
+
     // Add layer for mission points
     nativeMap.addLayer({
       id: 'mission-areas',
       type: 'symbol',
       source: 'mission-areas',
       layout: {
-        'text-field': ['concat', 
-          ['get', 'icon'],
-          '\n',
-          ['case', 
-            ['==', ['get', 'status'], 'completed'],
-            '🟢',
-            '🟡'
-          ]
-        ],
-        'text-size': 20,
+        'text-field': ['get', 'icon'],
+        'text-size': 18,
         'text-anchor': 'center',
         'text-offset': [0, 0],
         'text-allow-overlap': true,
         'icon-allow-overlap': true
       },
       paint: {
-        'text-color': '#fff',
+        'text-color': '#1C2E3A',
         'text-opacity': 1
       }
     });
