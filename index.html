@@ -246,64 +246,6 @@
 
         <div class="explore-grid" id="explore-grid">
 
-          <!-- Debug Panel (only visible in debug mode) -->
-          <div id="debug-panel" class="debug-panel">
-            <div class="debug-panel-header">
-              <span class="debug-panel-title">デバッグパネル</span>
-              <button class="debug-panel-close" type="button" data-debug-toggle>×</button>
-            </div>
-            <div class="debug-panel-content">
-              <div class="debug-info-row">
-                <span class="debug-label">デバッグモード:</span>
-                <span class="debug-value" id="debug-mode-status">有効</span>
-              </div>
-              <div class="debug-info-row">
-                <span class="debug-label">現在の距離:</span>
-                <span class="debug-value" id="debug-distance">86m</span>
-              </div>
-              <div class="debug-info-row">
-                <span class="debug-label">ゾーン:</span>
-                <span class="debug-value" id="debug-zone">—</span>
-              </div>
-              <div class="debug-info-row">
-                <span class="debug-label">測位:</span>
-                <span class="debug-value" id="qzss-status">未接続</span>
-              </div>
-              <div class="debug-info-row">
-                <span class="debug-label">現在位置:</span>
-                <span class="debug-value" id="debug-position">-</span>
-              </div>
-              <div class="debug-info-row">
-                <span class="debug-label">精度:</span>
-                <span class="debug-value" id="debug-accuracy">-</span>
-              </div>
-              <div class="debug-info-row">
-                <span class="debug-label">衛星:</span>
-                <span class="debug-value" id="debug-satellites">-</span>
-              </div>
-              <div class="debug-divider"></div>
-              <p class="debug-section-label">ヒント制御</p>
-              <div class="debug-actions">
-                <button class="debug-btn" type="button" id="debug-show-all-hints-btn">全ヒント表示</button>
-              </div>
-              <div class="debug-divider"></div>
-              <p class="debug-section-label">位置シミュレーション</p>
-              <div class="debug-actions debug-actions-grid">
-                <button class="debug-btn" type="button" id="debug-simulate-qzss-btn">QZ1 シミュレート</button>
-                <button class="debug-btn" type="button" id="debug-simulate-gps-btn">GPS シミュレート</button>
-                <button class="debug-btn" type="button" id="debug-teleport-approach-btn">接近圏 (8m)</button>
-                <button class="debug-btn" type="button" id="debug-teleport-hot-btn">発見圏 (2m)</button>
-              </div>
-              <div class="debug-divider"></div>
-              <p class="debug-section-label">ミッション制御</p>
-              <div class="debug-actions debug-actions-grid">
-                <button class="debug-btn debug-btn-primary" type="button" id="force-clear-btn">強制クリア</button>
-                <button class="debug-btn" type="button" id="debug-reset-missions-btn">全リセット</button>
-                <button class="debug-btn" type="button" id="debug-clear-all-btn">全クリア</button>
-              </div>
-            </div>
-          </div>
-
           <!-- Map Panel -->
           <div class="map-panel">
             <div id="explore-map-container" style="width: 100%; height: 100%;"></div>
@@ -412,6 +354,49 @@
               </svg>
               到着判定
             </button>
+          </div>
+
+          <!-- Debug Panel (only visible in debug mode) -->
+          <div id="debug-panel" class="debug-panel">
+            <div class="debug-panel-header">
+              <span class="debug-panel-title">DEBUG</span>
+              <button class="debug-panel-close" type="button" data-debug-toggle>×</button>
+            </div>
+            <div class="debug-panel-content">
+              <div class="debug-info-row">
+                <span class="debug-label">状態:</span>
+                <span class="debug-value" id="debug-mode-status">有効</span>
+              </div>
+              <div class="debug-info-row">
+                <span class="debug-label">距離:</span>
+                <span class="debug-value" id="debug-distance">86m</span>
+              </div>
+              <div class="debug-info-row">
+                <span class="debug-label">測位:</span>
+                <span class="debug-value" id="qzss-status">未接続</span>
+              </div>
+              <div class="debug-info-row">
+                <span class="debug-label">現在位置:</span>
+                <span class="debug-value" id="debug-position">-</span>
+              </div>
+              <div class="debug-divider"></div>
+              <p class="debug-section-label">仮想位置</p>
+              <div class="debug-actions debug-actions-grid">
+                <button class="debug-btn" type="button" id="debug-simulate-qzss-btn">遠く (30m)</button>
+                <button class="debug-btn" type="button" id="debug-simulate-gps-btn">接近 (8m)</button>
+                <button class="debug-btn" type="button" id="debug-teleport-approach-btn">近く (3m)</button>
+                <button class="debug-btn" type="button" id="debug-teleport-hot-btn">FOUND</button>
+              </div>
+              <div class="debug-divider"></div>
+              <p class="debug-section-label">ヘルパー</p>
+              <div class="debug-actions debug-actions-grid">
+                <button class="debug-btn" type="button" id="debug-show-all-hints-btn">全ヒント</button>
+                <button class="debug-btn debug-btn-primary" type="button" id="force-clear-btn">クリア</button>
+                <button class="debug-btn" type="button" id="debug-reset-missions-btn">リセット</button>
+                <button class="debug-btn" type="button" id="debug-clear-all-btn">全クリア</button>
+              </div>
+              <div class="debug-hint">地図をクリックすると、仮想現在地を変更できます。</div>
+            </div>
           </div>
 
         </div>

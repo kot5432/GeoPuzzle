@@ -752,12 +752,20 @@ body {
   background: var(--card-dark);
   border-radius: var(--radius-md);
   padding: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
   border: 1px solid rgba(224, 92, 53, 0.3);
+  grid-column: 1 / -1;
 }
 
 .debug-panel.hidden {
   display: none;
+}
+
+.debug-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .debug-panel-header {

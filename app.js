@@ -337,7 +337,14 @@ function showScreen(name) {
     ensureMapsMounted();
   }
   if (name === 'explore') {
-    ensureMapsMounted('explore');
+    ensureMapsMounted('explore').then(() => {
+      attachDebugMapClickHandler();
+    });
+  }
+  if (name === 'home') {
+    ensureMapsMounted().then(() => {
+      attachDebugMapClickHandler();
+    });
   }
 }
 
@@ -927,9 +934,43 @@ function simulateDebugPosition(provider, distanceMeters) {
   qzssData.position.latitude = currentPosition.latitude;
   qzssData.position.longitude = currentPosition.longitude;
   qzssData.accuracy.hdop = provider === 'qzss' ? 0.4 : 5;
+  qzssData.fixQuality = provider === 'qzss' ? 3 : 2;
+  qzssData.signalQuality = provider === 'qzss' ? 'excellent' : 'good';
   syncPositionToMaps();
   updateDistanceFromTarget();
   updateDebugUI();
+}
+
+function setDebugPositionFromMap(lat, lng) {
+  if (!debugConfig.debugMode || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+  const mission = MISSIONS.find((item) => item.id === currentMissionId) || MISSIONS[0];
+  currentPosition.latitude = lat;
+  currentPosition.longitude = lng;
+  currentDistance = calculateDistance(lat, lng, mission.targetLocation.latitude, mission.targetLocation.longitude);
+  useQZSS = false;
+  qzssData.position.latitude = lat;
+  qzssData.position.longitude = lng;
+  qzssData.accuracy.hdop = 0.7;
+  qzssData.fixQuality = 3;
+  qzssData.signalQuality = 'good';
+  qzssData.timestamp = Date.now();
+  syncPositionToMaps();
+  updateDistanceFromTarget();
+  updateDebugUI();
+}
+
+function attachDebugMapClickHandler() {
+  const activeMap = exploreMap || homeMap;
+  const nativeMap = activeMap?.getNativeMap?.();
+  if (!nativeMap || nativeMap.__geoDebugClickBound) return;
+
+  nativeMap.on('click', (event) => {
+    if (!debugConfig.debugMode) return;
+    setDebugPositionFromMap(event.lngLat.lat, event.lngLat.lng);
+  });
+
+  nativeMap.__geoDebugClickBound = true;
 }
 
 function resetMissions() {
