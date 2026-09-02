@@ -281,6 +281,7 @@ function HomePage({ session }: { session: Session | null }) {
               missions={nearbyMissionEntries} 
               interactive={false} 
               compact
+              showAreaOnly
               className="absolute inset-0" 
             />
             <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-[#173640]/90 px-3 py-1.5 text-[10px] font-bold text-[#f1c66b] backdrop-blur-sm sm:left-5 sm:top-5 sm:text-[11px]"><MapPinned size={13} /> 現在地周辺</div>

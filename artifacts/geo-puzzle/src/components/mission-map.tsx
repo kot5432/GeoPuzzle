@@ -31,6 +31,8 @@ type RegionOverviewProps = {
   interactive?: boolean;
   /** カード用地図のコンパクトモード（ラベルなし、シンプルなピン） */
   compact?: boolean;
+  /** 地域範囲表示モード（ミッションピンではなく地域境界を表示） */
+  showAreaOnly?: boolean;
 };
 
 export type MissionMapProps = SingleMissionProps | RegionOverviewProps;
@@ -115,13 +117,14 @@ export function MissionMap(props: MissionMapProps) {
   const singleMission = useMemo<Mission | null>(() => (mode === 'single' ? props.mission : null), [mode, props]);
 
   const compactMode = mode === 'region' ? (props as RegionOverviewProps).compact ?? false : false;
+  const showAreaOnly = mode === 'region' ? (props as RegionOverviewProps).showAreaOnly ?? false : false;
 
   const initialCenter: L.LatLngTuple = useMemo(() => {
     if (mode === 'region') return [props.region.latitude, props.region.longitude];
     return [singleMission!.latitude, singleMission!.longitude];
   }, [mode, props, singleMission]);
 
-  const initialZoom = mode === 'region' ? (compactMode ? 13 : 14) : 16;
+  const initialZoom = mode === 'region' ? (compactMode ? 12 : (showAreaOnly ? 13 : 14)) : 16;
 
   /* ---------- マウント ---------- */
   useEffect(() => {
@@ -234,13 +237,49 @@ export function MissionMap(props: MissionMapProps) {
     userMarker: L.Marker | null;
     accuracy: L.Circle | null;
     missionMarkers: Map<string, L.Marker>;
+    areaCircle: L.Circle | null;
     fitted: boolean;
-  }>({ userMarker: null, accuracy: null, missionMarkers: new Map(), fitted: false });
+  }>({ userMarker: null, accuracy: null, missionMarkers: new Map(), areaCircle: null, fitted: false });
 
   useEffect(() => {
     if (mode !== 'region') return;
     const map = mapRef.current;
     if (!map) return;
+    
+    // 地域範囲表示モードの場合はミッションピンを表示しない
+    if (showAreaOnly) {
+      // 地域円を表示
+      const center: L.LatLngTuple = [(props as RegionOverviewProps).region.latitude, (props as RegionOverviewProps).region.longitude];
+      const radius = 2000; // 地域の半径（2km）
+      
+      if (!regionRefs.current.areaCircle) {
+        regionRefs.current.areaCircle = L.circle(center, {
+          radius: radius,
+          color: '#1e7471',
+          weight: 2,
+          dashArray: '8 8',
+          fillColor: '#1e7471',
+          fillOpacity: 0.08,
+        }).addTo(map);
+      } else {
+        regionRefs.current.areaCircle.setLatLng(center).setRadius(radius);
+      }
+      
+      // ミッションマーカーをすべて削除
+      for (const [id, marker] of regionRefs.current.missionMarkers) {
+        marker.remove();
+        regionRefs.current.missionMarkers.delete(id);
+      }
+      
+      // 地図を地域中心に設定
+      if (!regionRefs.current.fitted) {
+        map.setView(center, 13);
+        regionRefs.current.fitted = true;
+      }
+      return;
+    }
+    
+    // 通常のミッションピン表示モード
     const entries = (props as RegionOverviewProps).missions;
     const validIds = new Set<string>();
     const bounds: L.LatLngTuple[] = [];
@@ -271,6 +310,11 @@ export function MissionMap(props: MissionMapProps) {
         regionRefs.current.missionMarkers.delete(id);
       }
     }
+    // 地域円を削除
+    if (regionRefs.current.areaCircle) {
+      regionRefs.current.areaCircle.remove();
+      regionRefs.current.areaCircle = null;
+    }
     if (!regionRefs.current.fitted && bounds.length) {
       const fix = (props as RegionOverviewProps).fix ?? null;
       if (fix) bounds.push([fix.latitude, fix.longitude]);
@@ -278,7 +322,7 @@ export function MissionMap(props: MissionMapProps) {
       else map.fitBounds(L.latLngBounds(bounds).pad(0.45), { maxZoom: 17 });
       regionRefs.current.fitted = true;
     }
-  }, [mode, props]);
+  }, [mode, props, compactMode, showAreaOnly]);
 
   useEffect(() => {
     if (mode !== 'region') return;
