@@ -920,97 +920,10 @@ function NavigatePage({ mission }: { mission: Mission }) {
         </div>
       </aside>
     </div>
-    {hintModalOpen && (
-      <div className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center bg-[#0a1a1f]/80 px-0 sm:px-4 py-0 sm:py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="ヒント">
-        <div className="w-full max-w-[440px] max-h-[92dvh] overflow-y-auto animate-rise rounded-t-[28px] sm:rounded-[28px] bg-[#f4f0e6] p-5 shadow-[0_22px_55px_rgba(0,0,0,.3)] sm:p-8 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
-          <div className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="shrink-0 grid h-9 w-9 place-items-center rounded-[11px] bg-[#173640] text-[#f1c66b]"><Lightbulb size={17} /></span>
-              <div className="min-w-0">
-                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078]">hints</p>
-                <h3 className="mt-0.5 font-display text-xl font-extrabold text-[#173640]">ヒントを確認する</h3>
-              </div>
-            </div>
-            <button type="button" onClick={closeHintModalAndExplore} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[#d4d8cc] text-[#718078] transition-colors hover:bg-[#e9e8df]" aria-label="閉じる" data-testid="button-close-hints"><Info size={15} /></button>
-          </div>
+    );
+  }
 
-          {progress.hintsRevealed === 0 && (
-            <div className="mb-5 rounded-2xl bg-[#244950] px-4 py-4 text-[13px] leading-6 text-[#d3e1d2]">
-              <p className="font-bold text-[#f1c66b]">まずは自分で探してみよう。</p>
-              <p className="mt-1 text-[#9cb5a6]">手がかりと地図をもとに、実際に歩き回って答えを考えるのが GeoPuzzle の遊び方です。どうしても分からなくなったら、下のボタンから1つずつヒントを解放してください。</p>
-            </div>
-          )}
-
-          <div className="max-h-[45dvh] sm:max-h-[42vh] space-y-3 overflow-y-auto pr-1">
-            {mission.hints.slice(0, progress.hintsRevealed).map((hint, index) => {
-              const isJustRevealed = justRevealedIndex === index;
-              return (
-                <div key={`${hint}-${index}`} className={`rounded-xl px-4 py-3.5 text-sm leading-6 ${isJustRevealed ? 'animate-rise bg-[#f1c66b]/15 ring-2 ring-[#f1c66b] text-[#173640]' : 'bg-[#e9e8df] text-[#20373f]'}`} data-testid={`modal-hint-${index + 1}`}>
-                  <p className="mb-1 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[.14em] text-[#668078]">
-                    <Lightbulb size={11} className="text-[#e09b3b]" /> hint {index + 1}
-                    {isJustRevealed && <span className="ml-auto rounded-full bg-[#e05c35] px-2 py-0.5 text-[9px] font-bold text-white">NEW</span>}
-                  </p>
-                  <p>{hint}</p>
-                </div>
-              );
-            })}
-            {Array.from({ length: mission.hints.length - progress.hintsRevealed }).map((_, idx) => {
-              const number = progress.hintsRevealed + idx + 1;
-              return (
-                <div key={`locked-${number}`} className="flex items-center gap-3 rounded-xl border border-dashed border-[#cfd8cb] bg-[#f9f7f0] px-4 py-3.5 text-xs text-[#8a978d]">
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#e9e8df] text-[#668078]"><LockKeyhole size={13} /></span>
-                  <p className="font-mono text-[10px] uppercase tracking-[.12em]">hint {number} · まだ解放されていません</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 space-y-3">
-            {progress.hintsRevealed < mission.hints.length && justRevealedIndex === null && (
-              <button type="button" onClick={revealHint} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#173640] px-5 py-3.5 text-sm font-bold text-[#f4f0e6] shadow-[3px_3px_0_#0e252b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-reveal-next-hint">
-                <Lightbulb size={16} />
-                次のヒントを解放する（{progress.hintsRevealed + 1} / {mission.hints.length}）
-              </button>
-            )}
-            {justRevealedIndex !== null && (
-              <div className="space-y-3">
-                <div className="rounded-2xl bg-[#1e7471]/10 px-4 py-3 text-sm font-bold text-[#1e7471]">
-                  <p>🧭 ヒントを頭に入れたら、さっそく足を動かそう。</p>
-                  <p className="mt-1 text-[12px] font-normal text-[#4a6e67]">一度探索画面に戻って歩き回り、それでも分からなければまた次のヒントを開きましょう。</p>
-                </div>
-                <button type="button" onClick={closeHintModalAndExplore} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-back-to-explore">
-                  <Navigation size={16} />
-                  探索へ戻って探し直す
-                </button>
-                {progress.hintsRevealed < mission.hints.length && (
-                  <button type="button" onClick={() => setJustRevealedIndex(null)} className="w-full rounded-xl px-5 py-2.5 text-xs font-bold text-[#668078] underline underline-offset-4">
-                    今すぐ次のヒントも見る
-                  </button>
-                )}
-              </div>
-            )}
-            {justRevealedIndex === null && progress.hintsRevealed >= mission.hints.length && (
-              <div className="space-y-3">
-                <div className="rounded-2xl bg-[#173640]/95 px-4 py-3 text-sm text-[#f1c66b]">
-                  <p className="font-bold">🎉 ヒントは全部解放済みです。</p>
-                  <p className="mt-1 text-[12px] font-normal text-[#b9c8bc]">4つのヒントを手がかりに、あとは自分の足で発見地点へたどり着いてください。</p>
-                </div>
-                <button type="button" onClick={closeHintModalAndExplore} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-back-to-explore-final">
-                  <Navigation size={16} />
-                  探索へ戻る
-                </button>
-              </div>
-            )}
-            {justRevealedIndex === null && progress.hintsRevealed > 0 && progress.hintsRevealed < mission.hints.length && (
-              <button type="button" onClick={closeHintModalAndExplore} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#cfd8cb] bg-[#faf8f1] px-5 py-3 text-sm font-bold text-[#536b65] transition-colors hover:bg-[#efeadb]">
-                ヒントを復習して探索へ戻る
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ヒントモーダル - 一時的に無効化 */}
+    {/* ヒントモーダル - 一時的に無効化 */}
 
 function DiscoverPage({ mission }: { mission: Mission }) {
   const [, setLocation] = useLocation();
