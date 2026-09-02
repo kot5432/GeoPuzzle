@@ -28,6 +28,39 @@ export type Mission = {
 
 export const missions: Mission[] = [
   {
+    id: 'kosen-zaka-last-step',
+    title: '最後の一歩',
+    name: '高専坂',
+    romanized: 'Kosen Zaka, Nagaoka National College of Technology',
+    area: '長岡高専 周辺',
+    city: '新潟県 長岡市',
+    clue: '長岡高専へ入る前、最後に越えるものを探せ。',
+    detail: '長岡高専へ入る前、最後に越えるものを探せ。ここではまだ「坂」とは言わない。',
+    // ⚠️ 現地でみちびき受信機を使って一点の緯度・経度を計測してください
+    latitude: 0.0000,
+    longitude: 0.0000,
+    // ⚠️ 坂の特定地点なら 5〜10m 推奨
+    discoveryRadius: 8,
+    // みちびき接続時はアプリ側で 2m に厳格化済み
+    maximumAccuracy: 2,
+    hints: [
+      '長岡高専へ向かう道の途中にある。',
+      '足元に注目して、上り下りを感じてみよう。',
+      '「越える」もの。地面の傾きにヒントがある。',
+      'そう、それは「坂」だ。最後に越える坂の頂点に立とう。',
+    ],
+    discovery: {
+      headline: 'あなたが探していたのは、高専坂。',
+      story:
+        '長岡高専へ向かう「最後の一歩」を見つけました。毎日の通学の中で、何気なく越えてきたこの坂が、あなただけの発見ポイントです。',
+      stamp: '最後の一歩',
+    },
+    difficulty: 'easy',
+    estimatedMinutes: 10,
+    photoEnabled: true,
+    published: true,
+  },
+  {
     id: 'kaiwomaru-viewpoint',
     title: '4つの景色が重なる場所',
     name: '展望広場',
@@ -55,7 +88,7 @@ export const missions: Mission[] = [
     difficulty: 'easy',
     estimatedMinutes: 15,
     photoEnabled: true,
-    published: true,
+    published: false,
   },
   {
     id: 'kaiwomaru-bell',
@@ -85,7 +118,7 @@ export const missions: Mission[] = [
     difficulty: 'normal',
     estimatedMinutes: 20,
     photoEnabled: true,
-    published: true,
+    published: false,
   },
   {
     id: 'kaiwomaru-lovers',
@@ -115,7 +148,7 @@ export const missions: Mission[] = [
     difficulty: 'normal',
     estimatedMinutes: 15,
     photoEnabled: true,
-    published: true,
+    published: false,
   },
 ];
 
