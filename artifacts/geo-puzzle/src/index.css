@@ -99,6 +99,60 @@ body {
   }
 }
 
+/* ===================================
+   レスポンシブ・ブレークポイント調整
+   =================================== */
+
+/* 小画面（スマホ縦向き） */
+@media (max-width: 480px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+/* モバイルボトムナビの高さ分、コンテンツ下部のクッションを強化 */
+@media (max-width: 767px) {
+  .pb-safe-bottom-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem) !important;
+  }
+}
+
+/* ===================================
+   z-index 階層の整理
+   優先順位（低→高）:
+   1. コンテンツ (auto ~ 1)
+   2. ヘッダー/ボトムナビ (z-40)
+   3. モバイルメニュー (z-50)
+   4. 地図オーバーレイ (z-500)
+   5. モーダル (z-1000)
+   6. Toaster (z-2000)
+   =================================== */
+
+/* Toaster を最上位レイヤーに */
+[data-sonner-toaster] {
+  z-index: 2000 !important;
+}
+
+/* モーダル背景 */
+.fixed.inset-0.z-\[1000\] {
+  z-index: 1000 !important;
+}
+
+/* モバイルメニューのドロップダウンがヘッダーより上に */
+header .absolute.z-50 {
+  z-index: 50 !important;
+}
+
+/* Leaflet ズームコントロールが地図内オーバーレイの下に隠れないよう調整 */
+.leaflet-control-container {
+  z-index: 400;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 400;
+}
+
 .leaflet-container {
   font-family: var(--font-sans);
   background: #dbe5d8;
@@ -125,4 +179,42 @@ body {
   background: #e47750;
   border: 3px solid #fff;
   box-shadow: 0 0 0 6px rgba(228, 119, 80, 0.25);
+}
+
+/* ===================================
+   タイポグラフィのレスポンシブ調整
+   =================================== */
+
+@media (max-width: 640px) {
+  /* ホーム画面ヒーロータイトル */
+  .hero-title-xs-compact {
+    font-size: 2.25rem !important;
+    line-height: 1.08 !important;
+  }
+}
+
+/* コンテナ内で横スクロールが発生しないための安全策 */
+* {
+  min-width: 0;
+}
+
+/* 長いテキストがカード幅を突き破らないように */
+.truncate-safe,
+.text-sm.leading-6,
+.text-xs {
+  overflow-wrap: anywhere;
+}
+
+/* ボタン内テキストが小画面で折り返さない最低限の配慮 */
+button,
+.button-like {
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  button,
+  .button-like {
+    white-space: normal;
+    line-height: 1.35;
+  }
 }
