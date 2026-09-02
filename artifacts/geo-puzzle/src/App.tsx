@@ -607,7 +607,7 @@ function NavigatePage({ mission }: { mission: Mission }) {
   const usingQzss = fix?.provider === 'qzss' && qzss.connected;
   const requiredAccuracy = usingQzss ? Math.min(mission.maximumAccuracy, 2) : mission.maximumAccuracy;
   const accuracyOk = fix ? fix.accuracy <= requiredAccuracy : false;
-  const canDiscover = stage === 'arrived' && accuracyOk;
+  const canDiscover = (stage === 'discovery' || stage === 'arrived') && accuracyOk;
 
   useEffect(() => {
     if (simulating || qzss.connected) return;
@@ -701,7 +701,11 @@ function NavigatePage({ mission }: { mission: Mission }) {
     setLocation('/discover');
   };
 
-  const stageTone: Record<typeof stage, string> = { unknown: 'bg-[#31555a] text-[#a9c1b2]', far: 'bg-[#31555a] text-[#d3e1d2]', approaching: 'bg-[#2f5f5c] text-[#d9ecd9]', near: 'bg-[#6b6236] text-[#f5e6b8]', search: 'bg-[#7a4b33] text-[#ffe2d4]', arrived: 'bg-[#1e7471] text-white' };
+  const stageTone: Record<typeof stage, string> = { navigation: 'bg-[#31555a] text-[#a9c1b2]', approaching: 'bg-[#2f5f5c] text-[#d9ecd9]', exploration: 'bg-[#6b6236] text-[#f5e6b8]', 'final-search': 'bg-[#7a4b33] text-[#ffe2d4]', discovery: 'bg-[#8b5a3a] text-[#ffe8dc]', arrived: 'bg-[#1e7471] text-white' };
+  
+  // ステージに応じた地図の透明度
+  const mapOpacity = stage === 'navigation' ? 1 : stage === 'approaching' ? 0.8 : stage === 'exploration' ? 0.5 : stage === 'final-search' ? 0.2 : 0.1;
+  
   const positioningLabel = fix?.simulated
     ? 'シミュレーション中'
     : usingQzss
@@ -720,7 +724,7 @@ function NavigatePage({ mission }: { mission: Mission }) {
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div className="min-w-0"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl break-words">{mission.title}</h1></div><div className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${fix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${fix ? (usingQzss ? 'bg-[#e05c35]' : 'bg-[#1e7471]') : 'bg-[#a7761f] animate-pulse'}`} />{positioningLabel}</div></div>
     <div className="grid gap-6 lg:grid-cols-[1.32fr_.68fr]">
       <div className="relative min-h-[380px] overflow-hidden rounded-[28px] border border-[#cfd8cb] sm:min-h-[420px] lg:min-h-[560px]">
-        <MissionMap mission={mission} fix={fix} revealGoal={canDiscover} />
+        <MissionMap mission={mission} fix={fix} revealGoal={canDiscover} opacity={mapOpacity} />
         <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-2xl bg-[#f4f0e6]/90 px-3 py-2 backdrop-blur-sm sm:bottom-5 sm:left-5 sm:px-4 sm:py-3"><p className="font-mono text-[8px] uppercase tracking-[.12em] text-[#668078] sm:text-[9px] sm:tracking-[.15em]">search area</p><p className="mt-0.5 text-xs font-bold sm:text-sm break-words">{region?.name ?? ''}</p></div>
         {bearing !== null && <div className="pointer-events-none absolute right-3 top-3 z-[500] flex items-center gap-1.5 rounded-xl bg-[#173640] px-2.5 py-1.5 font-mono text-[9px] text-[#f1c66b] sm:right-5 sm:top-5 sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px]" data-testid="status-bearing"><Navigation size={11} className="sm:size-[12px]" style={{ transform: `rotate(${bearing - 45}deg)` }} />{compassLabel(bearing)}</div>}
       </div>
