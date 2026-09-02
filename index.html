@@ -84,44 +84,33 @@
     <div id="home-screen" class="screen">
       <div class="page-content">
 
-        <!-- Hero Grid -->
-        <div class="hero-grid">
-
-          <!-- Left: Mission Card (Dark) -->
-          <div class="hero-card-dark">
-            <div>
-              <div class="hero-mission-label">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                MISSION SELECT
-              </div>
-              <p class="hero-greeting">kさん、次のミッションを選ぼう。</p>
-              <h1 class="hero-title">
-                海王丸パークの<br><em>特別な一点</em><br>を探そう。
-              </h1>
-            </div>
-            <div class="hero-bottom">
-              <div class="hero-clue-label">AVAILABLE MISSIONS</div>
-              <div class="mission-select-list" id="mission-select-list">
-                <!-- ミッションがJavaScriptで動的に追加される -->
-              </div>
-            </div>
+        <!-- Full-width Map Grid -->
+        <div class="home-map-section">
+          <div class="home-map-header">
+            <div class="home-map-label">MISSION MAP</div>
+            <p class="home-map-instruction">地図上のエリアをタップして<br>ミッションを選ぼう</p>
           </div>
 
-          <!-- Right: Map Card -->
-          <div class="hero-card-map">
-            <div class="map-area" id="home-map-container">
-              <!-- MapLibre + PMTiles コンポーネントがここにマウントされる -->
-            </div>
-            <div class="map-compass">🧭</div>
-            <div class="map-landmark-card">
-              <span class="map-landmark-label">HIDDEN LANDMARK</span>
-              <span class="map-landmark-name">海王丸パーク・射水市</span>
-            </div>
+          <div class="map-area map-area-large" id="home-map-container">
+            <!-- MapLibre + PMTiles + Mission Areas -->
           </div>
 
-        </div><!-- /hero-grid -->
+          <div class="map-compass">🧭</div>
+          <div class="map-status-legend">
+            <div class="legend-item">
+              <span class="legend-dot" style="background: #FFC107;">●</span>
+              <span>未挑戦</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background: #4CAF50;">●</span>
+              <span>発見済み</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background: #BDBDBD;">●</span>
+              <span>未解放</span>
+            </div>
+          </div>
+        </div>
 
         <!-- Stats Row -->
         <div class="stats-grid">
@@ -220,6 +209,51 @@
 
       </div>
     </div><!-- /home-screen -->
+
+    <!-- ===== MISSION DETAIL SCREEN ===== -->
+    <div id="mission-detail-screen" class="screen hidden">
+      <div class="page-content">
+        <div class="mission-detail-card">
+          <div class="mission-detail-header">
+            <button class="mission-detail-back-btn" id="mission-detail-back-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="mission-detail-content">
+            <div class="mission-detail-icon" id="mission-detail-icon">🏔️</div>
+            <h2 class="mission-detail-title" id="mission-detail-title">特別な一点を探そう</h2>
+
+            <div class="mission-detail-description">
+              <p class="mission-detail-intro" id="mission-detail-intro">海・山・橋・船。4つが重なる一点を探そう。</p>
+
+              <div class="mission-detail-section">
+                <h3 class="mission-detail-section-title">MISSION</h3>
+                <p class="mission-detail-objective" id="mission-detail-objective">4つすべてが見える場所を自分で探してください。</p>
+              </div>
+
+              <div class="mission-detail-section">
+                <h3 class="mission-detail-section-title">REWARD</h3>
+                <div class="mission-reward-badge">
+                  <span class="mission-reward-icon" id="mission-reward-icon">🏔️</span>
+                  <span class="mission-reward-name" id="mission-reward-name">絶景発見者</span>
+                </div>
+              </div>
+            </div>
+
+            <button class="mission-detail-start-btn" id="mission-detail-start-btn">
+              ミッションを開始
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /mission-detail-screen -->
 
     <!-- ===== EXPLORE SCREEN ===== -->
     <div id="explore-screen" class="screen hidden">
@@ -490,6 +524,22 @@
 
       </div>
     </div><!-- /record-screen -->
+
+    <!-- ===== FOUND SCREEN ===== -->
+    <div id="found-overlay" class="hidden found-overlay">
+      <div class="found-card">
+        <div class="found-symbol">✦</div>
+        <h2 class="found-title">FOUND!</h2>
+        <p class="found-subtitle" id="found-subtitle">特別な一点を発見しました。</p>
+        <div class="found-mission-name" id="found-mission-name">展望広場からの絶景</div>
+        <button class="found-next-btn" id="found-next-btn">
+          発見を見る
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
+    </div><!-- /found-overlay -->
 
     <!-- ===== DISCOVERY MODAL ===== -->
     <div id="discovery-overlay" class="hidden discovery-overlay">

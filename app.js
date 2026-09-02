@@ -196,6 +196,7 @@ function ensureMapsMounted(screenName) {
       if (nativeMap) nativeMap.resize();
     }
     syncTargetsToHomeMap();
+    renderMissionAreasOnHomeMap();
     if (currentMissionId) syncTargetsToExploreMap();
     syncPositionToMaps();
   });
@@ -305,6 +306,7 @@ async function syncTargetsToExploreMap() {
 const NAV_IDS = ['nav-home', 'nav-explore', 'nav-record'];
 const SCREEN_IDS = {
   home: 'home-screen',
+  'mission-detail': 'mission-detail-screen',
   explore: 'explore-screen',
   record: 'record-screen',
 };
@@ -320,29 +322,26 @@ function showScreen(name) {
   const target = document.getElementById(SCREEN_IDS[name]);
   if (target) target.classList.remove('hidden');
 
-  // Update nav active state
-  NAV_IDS.forEach((navId) => {
-    const btn = document.getElementById(navId);
-    if (!btn) return;
-    const screen = btn.dataset.screen;
-    btn.classList.toggle('active', screen === name);
-  });
+  // Update nav active state (only for main nav screens)
+  const navOnlyScreens = ['home', 'explore', 'record'];
+  if (navOnlyScreens.includes(name)) {
+    NAV_IDS.forEach((navId) => {
+      const btn = document.getElementById(navId);
+      if (!btn) return;
+      const screen = btn.dataset.screen;
+      btn.classList.toggle('active', screen === name);
+    });
+  }
 
   currentScreen = name;
 
   // Screen-specific actions
   if (name === 'record') renderDiscoveryList();
   if (name === 'home') {
-    renderMissionSelect();
     ensureMapsMounted();
   }
   if (name === 'explore') {
     ensureMapsMounted('explore').then(() => {
-      attachDebugMapClickHandler();
-    });
-  }
-  if (name === 'home') {
-    ensureMapsMounted().then(() => {
       attachDebugMapClickHandler();
     });
   }
@@ -443,6 +442,34 @@ document.addEventListener('DOMContentLoaded', () => {
     backHomeDiscoveryBtn.addEventListener('click', () => {
       closeDiscovery();
       showScreen('home');
+    });
+  }
+
+  // FOUND Screen
+  const foundNextBtn = document.getElementById('found-next-btn');
+  if (foundNextBtn) {
+    foundNextBtn.addEventListener('click', () => {
+      showDiscoveryDetail();
+    });
+  }
+
+  // Mission Detail Screen
+  const missionDetailBackBtn = document.getElementById('mission-detail-back-btn');
+  if (missionDetailBackBtn) {
+    missionDetailBackBtn.addEventListener('click', () => {
+      showScreen('home');
+    });
+  }
+
+  const missionDetailStartBtn = document.getElementById('mission-detail-start-btn');
+  if (missionDetailStartBtn) {
+    missionDetailStartBtn.addEventListener('click', () => {
+      if (currentMissionId) {
+        showScreen('explore');
+        ensureMapsMounted('explore').then(() => {
+          updateExploreScreen();
+        });
+      }
     });
   }
 
@@ -679,6 +706,31 @@ function completeMission(missionId) {
 // Discovery Overlay
 // ===================================
 function showDiscovery() {
+  // First show the FOUND screen
+  showFound();
+}
+
+function showFound() {
+  const foundOverlay = document.getElementById('found-overlay');
+  if (!foundOverlay) return;
+
+  // Update FOUND screen with mission info
+  if (currentMissionId) {
+    const mission = MISSIONS.find(m => m.id === currentMissionId);
+    if (mission) {
+      const subtitleEl = document.getElementById('found-subtitle');
+      const missionNameEl = document.getElementById('found-mission-name');
+
+      if (subtitleEl) subtitleEl.textContent = mission.description || '特別な一点を発見しました。';
+      if (missionNameEl) missionNameEl.textContent = mission.discoveredName || mission.title;
+    }
+  }
+
+  foundOverlay.classList.remove('hidden');
+  foundOverlay.style.display = 'flex';
+}
+
+function showDiscoveryDetail() {
   const overlay = document.getElementById('discovery-overlay');
   if (overlay) {
     overlay.classList.remove('hidden');
@@ -706,9 +758,14 @@ function showDiscovery() {
 
 function closeDiscovery() {
   const overlay = document.getElementById('discovery-overlay');
+  const foundOverlay = document.getElementById('found-overlay');
   if (overlay) {
     overlay.classList.add('hidden');
     overlay.style.display = 'none';
+  }
+  if (foundOverlay) {
+    foundOverlay.classList.add('hidden');
+    foundOverlay.style.display = 'none';
   }
 }
 
@@ -826,10 +883,86 @@ function renderMissionSelect() {
 function startMission(missionId) {
   currentMissionId = missionId;
   currentHintLevel = 1;
-  showScreen('explore');
-  ensureMapsMounted('explore').then(() => {
-    updateExploreScreen();
-  });
+  showMissionDetail(missionId);
+}
+
+function showMissionDetail(missionId) {
+  const mission = MISSIONS.find(m => m.id === missionId);
+  if (!mission) return;
+
+  // Update mission detail screen with mission info
+  const iconEl = document.getElementById('mission-detail-icon');
+  const titleEl = document.getElementById('mission-detail-title');
+  const introEl = document.getElementById('mission-detail-intro');
+  const objectiveEl = document.getElementById('mission-detail-objective');
+  const rewardIconEl = document.getElementById('mission-reward-icon');
+  const rewardNameEl = document.getElementById('mission-reward-name');
+
+  if (iconEl) iconEl.textContent = mission.reward.icon;
+  if (titleEl) titleEl.textContent = mission.title;
+  if (introEl) introEl.textContent = mission.description;
+  if (objectiveEl) objectiveEl.textContent = mission.hints[0].text;
+  if (rewardIconEl) rewardIconEl.textContent = mission.reward.icon;
+  if (rewardNameEl) rewardNameEl.textContent = mission.reward.name;
+
+  // Show mission detail screen
+  showScreen('mission-detail');
+}
+
+function renderMissionAreasOnHomeMap() {
+  // Add mission area markers to the home map
+  if (!homeMap) return;
+
+  try {
+    const nativeMap = homeMap.getNativeMap?.();
+    if (!nativeMap) return;
+
+    // Clear existing mission markers if any
+    document.querySelectorAll('.mission-area-marker').forEach(el => {
+      if (el._marker) el._marker.remove();
+      el.remove();
+    });
+
+    // Add mission markers to the map
+    MISSIONS.forEach((mission, index) => {
+      const isCompleted = missionProgress[mission.id]?.completed;
+      const statusEmoji = isCompleted ? '🟢' : '🟡'; // 🟢 completed, 🟡 available
+
+      // Create marker element
+      const markerEl = document.createElement('div');
+      markerEl.className = 'mission-area-marker';
+      markerEl.dataset.missionId = mission.id;
+      markerEl.style.cursor = 'pointer';
+
+      // Create emoji/status indicator
+      const emojiEl = document.createElement('div');
+      emojiEl.className = 'mission-marker-emoji';
+      emojiEl.textContent = statusEmoji;
+      markerEl.appendChild(emojiEl);
+
+      // Create marker label (mission icon)
+      const labelEl = document.createElement('div');
+      labelEl.className = 'mission-marker-label';
+      labelEl.textContent = mission.reward.icon;
+      markerEl.appendChild(labelEl);
+
+      // Add click handler
+      markerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startMission(mission.id);
+      });
+
+      // Add marker to map using Maplibre Marker
+      const marker = new maplibregl.Marker({ element: markerEl })
+        .setLngLat([mission.targetLocation.longitude, mission.targetLocation.latitude])
+        .addTo(nativeMap);
+
+      // Store reference for cleanup if needed
+      markerEl._marker = marker;
+    });
+  } catch (error) {
+    console.warn('Error rendering mission areas:', error);
+  }
 }
 
 function updateExploreScreen() {
