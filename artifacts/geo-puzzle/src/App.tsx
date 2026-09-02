@@ -585,6 +585,8 @@ function NavigatePage({ mission }: { mission: Mission }) {
   const [message, setMessage] = useState('');
   const [locationError, setLocationError] = useState('');
   const [simulating, setSimulating] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugDistance, setDebugDistance] = useState(100);
   const simulatedDistance = useRef(420);
   const [hintModalOpen, setHintModalOpen] = useState(false);
   const [justRevealedIndex, setJustRevealedIndex] = useState<number | null>(null);
@@ -594,23 +596,33 @@ function NavigatePage({ mission }: { mission: Mission }) {
       setFix(next);
       setLocationError('');
       setLocating(false);
-      updateProgress({ lastDistance: distanceInMeters(next.latitude, next.longitude, mission.latitude, mission.longitude), lastAccuracy: next.accuracy });
+      if (!debugMode) {
+        updateProgress({ lastDistance: distanceInMeters(next.latitude, next.longitude, mission.latitude, mission.longitude), lastAccuracy: next.accuracy });
+      }
     },
-    [mission.latitude, mission.longitude, updateProgress],
+    [mission.latitude, mission.longitude, updateProgress, debugMode],
   );
 
   const qzss = useQzssReceiver({ onFix: applyFix });
 
-  const distance = fix ? distanceInMeters(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
-  const bearing = fix ? bearingInDegrees(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null;
+  const distance = debugMode ? debugDistance : (fix ? distanceInMeters(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null);
+  const bearing = debugMode ? 0 : (fix ? bearingInDegrees(fix.latitude, fix.longitude, mission.latitude, mission.longitude) : null);
+  const displayFix = debugMode ? {
+    latitude: mission.latitude + (debugDistance / 111320),
+    longitude: mission.longitude,
+    accuracy: 2,
+    timestamp: Date.now(),
+    provider: 'simulated' as const,
+    simulated: true,
+  } : fix;
   const stage = stageFor(distance, mission);
   const usingQzss = fix?.provider === 'qzss' && qzss.connected;
   const requiredAccuracy = usingQzss ? Math.min(mission.maximumAccuracy, 2) : mission.maximumAccuracy;
-  const accuracyOk = fix ? fix.accuracy <= requiredAccuracy : false;
+  const accuracyOk = debugMode ? true : (fix ? fix.accuracy <= requiredAccuracy : false);
   const canDiscover = (stage === 'discovery' || stage === 'arrived') && accuracyOk;
 
   useEffect(() => {
-    if (simulating || qzss.connected) return;
+    if (debugMode || simulating || qzss.connected) return;
     if (!navigator.geolocation) {
       setLocationError('このブラウザは位置情報に対応していません。');
       return;
@@ -625,10 +637,23 @@ function NavigatePage({ mission }: { mission: Mission }) {
       { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [applyFix, qzss.connected, simulating]);
+  }, [applyFix, qzss.connected, simulating, debugMode]);
 
   const locate = () => {
     setMessage('');
+    if (debugMode) {
+      const simulatedFix = {
+        latitude: mission.latitude + (debugDistance / 111320),
+        longitude: mission.longitude,
+        accuracy: 2,
+        timestamp: Date.now(),
+        provider: 'simulated' as const,
+        simulated: true,
+      };
+      applyFix(simulatedFix);
+      setMessage(`デバッグ距離 ${debugDistance}m を適用しました。`);
+      return;
+    }
     if (simulating) {
       simulatedDistance.current = Math.max(2, simulatedDistance.current * 0.45);
       applyFix(simulatedFix(mission, simulatedDistance.current, 8));
@@ -706,25 +731,27 @@ function NavigatePage({ mission }: { mission: Mission }) {
   // ステージに応じた地図の透明度
   const mapOpacity = stage === 'navigation' ? 1 : stage === 'approaching' ? 0.8 : stage === 'exploration' ? 0.5 : stage === 'final-search' ? 0.2 : 0.1;
   
-  const positioningLabel = fix?.simulated
-    ? 'シミュレーション中'
-    : usingQzss
-      ? `みちびき測位 · 誤差 約${Math.round(fix.accuracy * 10) / 10}m`
-      : fix
-        ? `測位中 · 誤差 約${Math.round(fix.accuracy)}m`
-        : qzss.connected
-          ? 'みちびき受信中…'
-          : '現在地を取得中';
+  const positioningLabel = debugMode 
+    ? 'デバッグモード'
+    : fix?.simulated
+      ? 'シミュレーション中'
+      : usingQzss
+        ? `みちびき測位 · 誤差 約${Math.round(fix.accuracy * 10) / 10}m`
+        : fix
+          ? `測位中 · 誤差 約${Math.round(fix.accuracy)}m`
+          : qzss.connected
+            ? 'みちびき受信中…'
+            : '現在地を取得中';
 
   const region = findRegion(mission.regionId);
   return <main className="mx-auto max-w-[1240px] px-5 pb-safe-bottom-nav pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-6 sm:px-8 sm:pt-10">
     <div className="mb-6 flex flex-wrap items-center gap-3 sm:gap-4">
       <Link href={`/region/${mission.regionId}`} className="flex items-center gap-1.5 rounded-full border border-[#d4d8cc] bg-white px-3 py-2 text-xs font-bold text-[#48625f] transition-colors hover:bg-[#f1efde]" data-testid="link-back-region"><ChevronRight size={14} className="rotate-180" />地域へ戻る</Link>
     </div>
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div className="min-w-0"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl break-words">{mission.title}</h1></div><div className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${fix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${fix ? (usingQzss ? 'bg-[#e05c35]' : 'bg-[#1e7471]') : 'bg-[#a7761f] animate-pulse'}`} />{positioningLabel}</div></div>
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div className="min-w-0"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl break-words">{mission.title}</h1></div><div className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${displayFix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${displayFix ? (debugMode ? 'bg-[#e47750]' : (usingQzss ? 'bg-[#e05c35]' : 'bg-[#1e7471]')) : 'bg-[#a7761f] animate-pulse'}`} />{positioningLabel}</div></div>
     <div className="grid gap-6 lg:grid-cols-[1.32fr_.68fr]">
       <div className="relative min-h-[380px] overflow-hidden rounded-[28px] border border-[#cfd8cb] sm:min-h-[420px] lg:min-h-[560px]">
-        <MissionMap mission={mission} fix={fix} revealGoal={canDiscover} opacity={mapOpacity} />
+        <MissionMap mission={mission} fix={displayFix} revealGoal={canDiscover} opacity={mapOpacity} />
         <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-2xl bg-[#f4f0e6]/90 px-3 py-2 backdrop-blur-sm sm:bottom-5 sm:left-5 sm:px-4 sm:py-3"><p className="font-mono text-[8px] uppercase tracking-[.12em] text-[#668078] sm:text-[9px] sm:tracking-[.15em]">search area</p><p className="mt-0.5 text-xs font-bold sm:text-sm break-words">{region?.name ?? ''}</p></div>
         {bearing !== null && <div className="pointer-events-none absolute right-3 top-3 z-[500] flex items-center gap-1.5 rounded-xl bg-[#173640] px-2.5 py-1.5 font-mono text-[9px] text-[#f1c66b] sm:right-5 sm:top-5 sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px]" data-testid="status-bearing"><Navigation size={11} className="sm:size-[12px]" style={{ transform: `rotate(${bearing - 45}deg)` }} />{compassLabel(bearing)}</div>}
       </div>
@@ -861,6 +888,125 @@ function NavigatePage({ mission }: { mission: Mission }) {
               </button>
             )}
           </div>
+
+          {/* デバッグ用コントロール */}
+          {debugMode && (
+            <div className="mt-6 rounded-2xl border border-[#d4d8cc] bg-[#f9f7f0] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-mono text-[10px] uppercase tracking-[.18em] text-[#668078]">GeoPuzzle Debug</h3>
+                <button 
+                  type="button" 
+                  onClick={() => setDebugMode(false)}
+                  className="text-xs font-bold text-[#b24d3d] hover:underline"
+                >
+                  閉じる
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の距離</p>
+                <p className="font-display text-3xl font-extrabold text-[#173640]">{debugDistance} m</p>
+                
+                <div className="mt-3 relative h-2 bg-[#e6e8dd] rounded-full overflow-hidden">
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-[#e47750] transition-all"
+                    style={{ width: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
+                  />
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#173640] rounded-full border-2 border-white shadow"
+                    style={{ left: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex justify-between text-[10px] text-[#668078]">
+                  <span>0m</span>
+                  <span>200m</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  value={debugDistance}
+                  onChange={(e) => setDebugDistance(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[100, 50, 30, 10].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setDebugDistance(m)}
+                    className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
+                      debugDistance === m 
+                        ? 'bg-[#e47750] text-white' 
+                        : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
+                    }`}
+                  >
+                    {m}m
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {[5, 3, 1, 0].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setDebugDistance(m)}
+                    className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
+                      debugDistance === m 
+                        ? 'bg-[#e47750] text-white' 
+                        : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
+                    }`}
+                  >
+                    {m === 0 ? '到達' : `${m}m`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-[#d4d8cc]">
+                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の状態</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{stage === 'navigation' ? '🗺️' : stage === 'approaching' ? '📍' : stage === 'exploration' ? '🔎' : stage === 'final-search' ? '🎯' : stage === 'discovery' ? '✨' : '🎉'}</span>
+                  <span className="font-bold text-[#173640]">
+                    {stage === 'navigation' ? '移動' : stage === 'approaching' ? '接近' : stage === 'exploration' ? '探索開始' : stage === 'final-search' ? '最終探索' : stage === 'discovery' ? '発見判定' : '発見'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const simulatedFix = {
+                    latitude: mission.latitude + (debugDistance / 111320),
+                    longitude: mission.longitude,
+                    accuracy: 2,
+                    timestamp: Date.now(),
+                    provider: 'simulated' as const,
+                    simulated: true,
+                  };
+                  applyFix(simulatedFix);
+                }}
+                className="mt-4 w-full rounded-xl bg-[#173640] px-4 py-3 text-sm font-bold text-[#f4f0e6] hover:bg-[#1e3c46]"
+              >
+                距離を適用
+              </button>
+            </div>
+          )}
+
+          {!debugMode && (
+            <button
+              type="button"
+              onClick={() => setDebugMode(true)}
+              className="mt-4 w-full rounded-xl border border-dashed border-[#d4d8cc] px-4 py-2 text-xs font-bold text-[#8a978d] hover:bg-[#f5f2e9]"
+            >
+              デバッグモードを開く
+            </button>
+          )}
         </div>
       </div>
     )}
