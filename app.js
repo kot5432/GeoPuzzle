@@ -909,12 +909,13 @@ function showMissionDetail(missionId) {
   showScreen('mission-detail');
 }
 
-function renderMissionAreasOnHomeMap() {
+async function renderMissionAreasOnHomeMap() {
   // Add mission area markers to the home map using GeoJSON layer
-  if (!homeMap) return;
+  const [hMap] = await Promise.all([homeMap || Promise.resolve(null)]);
+  if (!hMap) return;
 
   try {
-    const nativeMap = homeMap.getNativeMap?.();
+    const nativeMap = hMap.getNativeMap?.();
     if (!nativeMap) return;
     if (!nativeMap.isStyleLoaded()) {
       // スタイル読み込み完了後にもう一度呼び直す（初回マウント直後は未ロード）
@@ -965,10 +966,10 @@ function renderMissionAreasOnHomeMap() {
       source: 'mission-areas',
       paint: {
         'circle-radius': 18,
-        'circle-color': ['case', ['==', ['get', 'status'], 'completed'], '#4CAF50', '#FFC107'],
-        'circle-opacity': 0.9,
+        'circle-color': ['case', ['==', ['get', 'status'], 'completed'], '#2E7D32', '#E8A317'],
+        'circle-opacity': 1,
         'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2.5
+        'circle-stroke-width': 3
       }
     });
 
@@ -991,15 +992,19 @@ function renderMissionAreasOnHomeMap() {
       }
     });
 
-    // Add click handler to layer
-    nativeMap.on('click', 'mission-areas', (e) => {
+    // Add click handler to both the background circle and the icon layer
+    const handleMissionClick = (e) => {
       if (e.features && e.features.length > 0) {
         const feature = e.features[0];
         const missionId = feature.properties.id;
         console.log('Mission clicked:', missionId);
         startMission(missionId);
       }
-    });
+    };
+    nativeMap.on('click', 'mission-areas-bg', handleMissionClick);
+    nativeMap.on('click', 'mission-areas', handleMissionClick);
+    nativeMap.on('mouseenter', 'mission-areas-bg', () => { nativeMap.getCanvas().style.cursor = 'pointer'; });
+    nativeMap.on('mouseleave', 'mission-areas-bg', () => { nativeMap.getCanvas().style.cursor = ''; });
 
     // Change cursor on hover
     nativeMap.on('mouseenter', 'mission-areas', () => {

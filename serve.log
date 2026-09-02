@@ -1,0 +1,17 @@
+ INFO  Accepting connections at http://localhost:5050
+ HTTP  2026/9/2 10:23:26 ::1 GET /
+ HTTP  2026/9/2 10:23:26 ::1 Returned 200 in 24 ms
+ HTTP  2026/9/2 10:23:26 ::1 GET /style.css
+ HTTP  2026/9/2 10:23:26 ::1 Returned 200 in 2 ms
+ HTTP  2026/9/2 10:23:26 ::1 GET /components/geo-map.js
+ HTTP  2026/9/2 10:23:26 ::1 GET /config.js
+ HTTP  2026/9/2 10:23:26 ::1 GET /location.js
+ HTTP  2026/9/2 10:23:26 ::1 GET /app.js
+ HTTP  2026/9/2 10:23:26 ::1 Returned 200 in 7 ms
+ HTTP  2026/9/2 10:23:26 ::1 Returned 404 in 8 ms
+ HTTP  2026/9/2 10:23:26 ::1 Returned 404 in 8 ms
+ HTTP  2026/9/2 10:23:26 ::1 Returned 200 in 6 ms
+ HTTP  2026/9/2 10:23:27 ::1 GET /maps/map.json
+ HTTP  2026/9/2 10:23:27 ::1 Returned 404 in 2 ms
+ HTTP  2026/9/2 10:23:27 ::1 GET /favicon.ico
+ HTTP  2026/9/2 10:23:27 ::1 Returned 404 in 2 ms

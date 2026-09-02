@@ -22,6 +22,28 @@
     return element;
   }
 
+  // 中心(lng,lat)と半径(メートル)から、実際の距離を保つ円ポリゴンのGeoJSONを生成する。
+  // ズーム/パンしても現実の距離感が変わらないようにするため、circle-radius(px固定)ではなくPolygonを使う。
+  function createGeoCircle(centerLng, centerLat, radiusMeters, points) {
+    var steps = points || 64;
+    var coords = [];
+    var earthRadius = 6371000;
+    var latRad = (centerLat * Math.PI) / 180;
+    for (var i = 0; i <= steps; i++) {
+      var angle = (i / steps) * 2 * Math.PI;
+      var dx = radiusMeters * Math.cos(angle);
+      var dy = radiusMeters * Math.sin(angle);
+      var dLat = (dy / earthRadius) * (180 / Math.PI);
+      var dLng = (dx / (earthRadius * Math.cos(latRad))) * (180 / Math.PI);
+      coords.push([centerLng + dLng, centerLat + dLat]);
+    }
+    return {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [coords] },
+      properties: {}
+    };
+  }
+
   function renderFallback(container, error) {
     container.innerHTML = '';
     var wrap = document.createElement('div');
@@ -80,6 +102,7 @@
 
     function updateExplorationArea(config) {
       if (!config || typeof config.center !== 'object') {
+        if (map.getLayer('geo-exploration-area-line')) map.removeLayer('geo-exploration-area-line');
         if (map.getLayer('geo-exploration-area')) map.removeLayer('geo-exploration-area');
         if (map.getSource('geo-exploration-area')) map.removeSource('geo-exploration-area');
         return;
@@ -87,42 +110,45 @@
 
       var areaConfig = config || {};
       var center = [areaConfig.center.lng, areaConfig.center.lat];
+      // 半径はメートル単位。ズーム/パンしても現実の距離感が変わらないよう、
+      // circle-radius(px固定)ではなく、実距離から生成したPolygonを使う。
       var radius = typeof areaConfig.radius === 'number' ? areaConfig.radius : 120;
       var color = areaConfig.color || '#F9A43A';
       var fillOpacity = typeof areaConfig.fillOpacity === 'number' ? areaConfig.fillOpacity : 0.22;
       var strokeOpacity = typeof areaConfig.strokeOpacity === 'number' ? areaConfig.strokeOpacity : 0.45;
-      var areaData = {
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: center },
-        properties: {}
-      };
+      var areaData = createGeoCircle(center[0], center[1], radius);
 
       var source = map.getSource('geo-exploration-area');
       if (!source) {
         map.addSource('geo-exploration-area', { type: 'geojson', data: areaData });
         map.addLayer({
           id: 'geo-exploration-area',
-          type: 'circle',
+          type: 'fill',
           source: 'geo-exploration-area',
           paint: {
-            'circle-radius': radius,
-            'circle-color': color,
-            'circle-opacity': fillOpacity,
-            'circle-blur': 0.6,
-            'circle-stroke-color': color,
-            'circle-stroke-opacity': strokeOpacity,
-            'circle-stroke-width': 2,
+            'fill-color': color,
+            'fill-opacity': fillOpacity,
+          }
+        });
+        map.addLayer({
+          id: 'geo-exploration-area-line',
+          type: 'line',
+          source: 'geo-exploration-area',
+          paint: {
+            'line-color': color,
+            'line-opacity': strokeOpacity,
+            'line-width': 2,
           }
         });
       } else {
         source.setData(areaData);
-        var layer = map.getLayer('geo-exploration-area');
-        if (layer) {
-          map.setPaintProperty('geo-exploration-area', 'circle-radius', radius);
-          map.setPaintProperty('geo-exploration-area', 'circle-color', color);
-          map.setPaintProperty('geo-exploration-area', 'circle-opacity', fillOpacity);
-          map.setPaintProperty('geo-exploration-area', 'circle-stroke-color', color);
-          map.setPaintProperty('geo-exploration-area', 'circle-stroke-opacity', strokeOpacity);
+        if (map.getLayer('geo-exploration-area')) {
+          map.setPaintProperty('geo-exploration-area', 'fill-color', color);
+          map.setPaintProperty('geo-exploration-area', 'fill-opacity', fillOpacity);
+        }
+        if (map.getLayer('geo-exploration-area-line')) {
+          map.setPaintProperty('geo-exploration-area-line', 'line-color', color);
+          map.setPaintProperty('geo-exploration-area-line', 'line-opacity', strokeOpacity);
         }
       }
 
