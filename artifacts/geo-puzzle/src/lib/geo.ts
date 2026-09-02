@@ -44,29 +44,30 @@ export function distanceUnit(distance: number | null) {
   return distance !== null && distance >= 1000 ? 'km' : 'm';
 }
 
-export type Stage = 'unknown' | 'far' | 'approaching' | 'near' | 'search' | 'arrived';
+export type Stage = 'exploration' | 'approaching' | 'search' | 'final-search' | 'discovery' | 'arrived';
 
 export function stageFor(distance: number | null, mission: Mission): Stage {
-  if (distance === null) return 'unknown';
+  if (distance === null) return 'exploration';
   if (distance <= mission.discoveryRadius) return 'arrived';
+  if (distance <= 3) return 'discovery';
+  if (distance <= 10) return 'final-search';
   if (distance <= 30) return 'search';
-  if (distance <= 100) return 'near';
-  if (distance <= 500) return 'approaching';
-  return 'far';
+  if (distance <= 100) return 'approaching';
+  return 'exploration';
 }
 
 export function stageMessage(stage: Stage) {
   switch (stage) {
-    case 'unknown':
-      return '現在地を確認しています。';
-    case 'far':
+    case 'exploration':
       return '手がかりを頼りに、目的地の方向へ歩いてみましょう。';
     case 'approaching':
-      return '目的地に近づいています。';
-    case 'near':
-      return '発見地点の周辺です。手がかりと景色を照らし合わせてみましょう。';
+      return '目的地に近づいています。この先を探してみよう。';
     case 'search':
-      return 'すぐ近くです。周囲を確認してください。';
+      return 'この辺りまで来ました。周囲を見渡してみよう。';
+    case 'final-search':
+      return 'もうすぐです。地図を頼りにするのではなく、周囲をよく探してみよう。';
+    case 'discovery':
+      return '位置を確認中…';
     case 'arrived':
       return '発見地点に到達しました。';
   }

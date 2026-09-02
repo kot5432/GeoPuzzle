@@ -734,7 +734,10 @@ function NavigatePage({ mission }: { mission: Mission }) {
     setLocation('/discover');
   };
 
-  const stageTone: Record<typeof stage, string> = { unknown: 'bg-[#31555a] text-[#a9c1b2]', far: 'bg-[#31555a] text-[#d3e1d2]', approaching: 'bg-[#2f5f5c] text-[#d9ecd9]', near: 'bg-[#6b6236] text-[#f5e6b8]', search: 'bg-[#7a4b33] text-[#ffe2d4]', arrived: 'bg-[#1e7471] text-white' };
+  const stageTone: Record<typeof stage, string> = { exploration: 'bg-[#31555a] text-[#a9c1b2]', approaching: 'bg-[#2f5f5c] text-[#d9ecd9]', search: 'bg-[#6b6236] text-[#f5e6b8]', 'final-search': 'bg-[#7a4b33] text-[#ffe2d4]', discovery: 'bg-[#8b5a3a] text-[#ffe8dc]', arrived: 'bg-[#1e7471] text-white' };
+  
+  // フェーズに応じた地図の透明度
+  const mapOpacity = stage === 'exploration' ? 1 : stage === 'approaching' ? 0.8 : stage === 'search' ? 0.5 : stage === 'final-search' ? 0.2 : 0.1;
   
   const positioningLabel = debugMode 
     ? 'デバッグモード'
@@ -756,7 +759,7 @@ function NavigatePage({ mission }: { mission: Mission }) {
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div className="min-w-0"><p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">{missionLabel(mission)} / navigate</p><h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl break-words">{mission.title}</h1></div><div className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${displayFix ? 'bg-[#d9e9dd] text-[#1e7471]' : 'bg-[#eee7d2] text-[#a7761f]'}`} data-testid="status-positioning"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${displayFix ? (debugMode ? 'bg-[#e47750]' : (usingQzss ? 'bg-[#e05c35]' : 'bg-[#1e7471]')) : 'bg-[#a7761f] animate-pulse'}`} />{positioningLabel}</div></div>
     <div className="grid gap-6 lg:grid-cols-[1.32fr_.68fr]">
       <div className="relative min-h-[380px] overflow-hidden rounded-[28px] border border-[#cfd8cb] sm:min-h-[420px] lg:min-h-[560px]">
-        <MissionMap mission={mission} fix={displayFix} revealGoal={canDiscover} />
+        <MissionMap mission={mission} fix={displayFix} revealGoal={canDiscover} opacity={mapOpacity} />
         <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-2xl bg-[#f4f0e6]/90 px-3 py-2 backdrop-blur-sm sm:bottom-5 sm:left-5 sm:px-4 sm:py-3"><p className="font-mono text-[8px] uppercase tracking-[.12em] text-[#668078] sm:text-[9px] sm:tracking-[.15em]">search area</p><p className="mt-0.5 text-xs font-bold sm:text-sm break-words">{region?.name ?? ''}</p></div>
         {bearing !== null && <div className="pointer-events-none absolute right-3 top-3 z-[500] flex items-center gap-1.5 rounded-xl bg-[#173640] px-2.5 py-1.5 font-mono text-[9px] text-[#f1c66b] sm:right-5 sm:top-5 sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px]" data-testid="status-bearing"><Navigation size={11} className="sm:size-[12px]" style={{ transform: `rotate(${bearing - 45}deg)` }} />{compassLabel(bearing)}</div>}
       </div>
@@ -896,10 +899,36 @@ function NavigatePage({ mission }: { mission: Mission }) {
               <div className="mt-4 pt-4 border-t border-[#d4d8cc]">
                 <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の状態</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{stage === 'navigation' ? '🗺️' : stage === 'approaching' ? '📍' : stage === 'exploration' ? '🔎' : stage === 'final-search' ? '🎯' : stage === 'discovery' ? '✨' : '🎉'}</span>
+                  <span className="text-lg">{stage === 'exploration' ? '🗺️' : stage === 'approaching' ? '📍' : stage === 'search' ? '🔎' : stage === 'final-search' ? '🎯' : stage === 'discovery' ? '✨' : '🎉'}</span>
                   <span className="font-bold text-[#173640]">
-                    {stage === 'navigation' ? '移動' : stage === 'approaching' ? '接近' : stage === 'exploration' ? '探索開始' : stage === 'final-search' ? '最終探索' : stage === 'discovery' ? '発見判定' : '発見'}
+                    {stage === 'exploration' ? '探索モード' : stage === 'approaching' ? '接近モード' : stage === 'search' ? '捜索モード' : stage === 'final-search' ? '最終探索' : stage === 'discovery' ? '発見判定' : '発見'}
                   </span>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-[#d4d8cc]">
+                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">フェーズ選択</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: '探索モード', distance: 150 },
+                    { label: '接近モード', distance: 50 },
+                    { label: '捜索モード', distance: 20 },
+                    { label: '最終探索', distance: 7 },
+                    { label: '発見判定', distance: 2 },
+                  ].map((phase) => (
+                    <button
+                      key={phase.label}
+                      type="button"
+                      onClick={() => setDebugDistance(phase.distance)}
+                      className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
+                        debugDistance === phase.distance 
+                          ? 'bg-[#e47750] text-white' 
+                          : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
+                      }`}
+                    >
+                      {phase.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
