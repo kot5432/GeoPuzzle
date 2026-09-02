@@ -794,7 +794,125 @@ function NavigatePage({ mission }: { mission: Mission }) {
         <p className={`mt-5 rounded-xl px-3 py-3 text-xs leading-5 ${stageTone[stage]}`} data-testid="status-stage">{stageMessage(stage)}{stage === 'arrived' && !accuracyOk && ' ただし測位誤差が大きいため、判定にはもう少し精度が必要です。'}</p>
         {locationError && <p className="mt-5 rounded-xl bg-[#6a3f43] px-3 py-3 text-xs leading-5 text-[#ffe2d4]" aria-live="assertive" data-testid="status-location-error">{locationError}</p>}
         {message && <p className="mt-5 rounded-xl bg-[#284b52] px-3 py-3 text-xs leading-5 text-[#d3e1d2]" aria-live="polite" data-testid="status-navigation-message">{message}</p>}
+
+        {/* デバッグ用コントロール */}
+        {debugMode && (
+          <div className="mt-5 rounded-2xl border border-[#d4d8cc] bg-[#f9f7f0] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-mono text-[10px] uppercase tracking-[.18em] text-[#668078]">GeoPuzzle Debug</h3>
+              <button 
+                type="button" 
+                onClick={() => setDebugMode(false)}
+                className="text-xs font-bold text-[#b24d3d] hover:underline"
+              >
+                閉じる
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の距離</p>
+              <p className="font-display text-3xl font-extrabold text-[#173640]">{debugDistance} m</p>
+              
+              <div className="mt-3 relative h-2 bg-[#e6e8dd] rounded-full overflow-hidden">
+                <div 
+                  className="absolute left-0 top-0 h-full bg-[#e47750] transition-all"
+                  style={{ width: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
+                />
+                <div 
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#173640] rounded-full border-2 border-white shadow"
+                  style={{ left: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
+                />
+              </div>
+              <div className="mt-1 flex justify-between text-[10px] text-[#668078]">
+                <span>0m</span>
+                <span>200m</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <input
+                type="range"
+                min="0"
+                max="200"
+                value={debugDistance}
+                onChange={(e) => setDebugDistance(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {[100, 50, 30, 10].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDebugDistance(m)}
+                  className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
+                    debugDistance === m 
+                      ? 'bg-[#e47750] text-white' 
+                      : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
+                  }`}
+                >
+                  {m}m
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {[5, 3, 1, 0].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDebugDistance(m)}
+                  className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
+                    debugDistance === m 
+                      ? 'bg-[#e47750] text-white' 
+                      : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
+                  }`}
+                >
+                  {m === 0 ? '到達' : `${m}m`}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-[#d4d8cc]">
+              <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の状態</p>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{stage === 'navigation' ? '🗺️' : stage === 'approaching' ? '📍' : stage === 'exploration' ? '🔎' : stage === 'final-search' ? '🎯' : stage === 'discovery' ? '✨' : '🎉'}</span>
+                <span className="font-bold text-[#173640]">
+                  {stage === 'navigation' ? '移動' : stage === 'approaching' ? '接近' : stage === 'exploration' ? '探索開始' : stage === 'final-search' ? '最終探索' : stage === 'discovery' ? '発見判定' : '発見'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const simulatedFix = {
+                  latitude: mission.latitude + (debugDistance / 111320),
+                  longitude: mission.longitude,
+                  accuracy: 2,
+                  timestamp: Date.now(),
+                  provider: 'simulated' as const,
+                  simulated: true,
+                };
+                applyFix(simulatedFix);
+              }}
+              className="mt-4 w-full rounded-xl bg-[#173640] px-4 py-3 text-sm font-bold text-[#f4f0e6] hover:bg-[#1e3c46]"
+            >
+              距離を適用
+            </button>
+          </div>
+        )}
         <div className="mt-7 space-y-3">
+          {!debugMode && (
+            <button
+              type="button"
+              onClick={() => setDebugMode(true)}
+              className="w-full rounded-xl border border-dashed border-[#d4d8cc] px-4 py-2 text-xs font-bold text-[#8a978d] hover:bg-[#f5f2e9]"
+            >
+              デバッグモードを開く
+            </button>
+          )}
           <button type="button" disabled={locating || qzss.connecting} onClick={locate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#54736d] px-4 py-3.5 text-sm font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52] disabled:opacity-60" data-testid="button-update-location"><Navigation size={17} className={locating ? 'animate-pulse' : ''} />{locating ? '現在地を確認中…' : '現在地を更新'}</button>
           <button type="button" onClick={verify} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold transition-transform hover:-translate-y-0.5 ${canDiscover ? 'bg-[#e47750] text-white shadow-[3px_3px_0_#a74e3b]' : 'bg-[#2c4f56] text-[#a9c1b2]'}`} data-testid="button-verify-location"><Crosshair size={17} />{canDiscover ? '発見する' : 'この場所で判定する'}</button>
           {DEMO_MODE && !simulating && <button type="button" onClick={startSimulation} className="w-full rounded-xl px-4 py-2 font-mono text-[10px] uppercase tracking-[.16em] text-[#8fa99b] underline underline-offset-4" data-testid="button-start-simulation">demo: GPSなしでシミュレーション</button>}
@@ -888,129 +1006,11 @@ function NavigatePage({ mission }: { mission: Mission }) {
               </button>
             )}
           </div>
-
-          {/* デバッグ用コントロール */}
-          {debugMode && (
-            <div className="mt-6 rounded-2xl border border-[#d4d8cc] bg-[#f9f7f0] p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-mono text-[10px] uppercase tracking-[.18em] text-[#668078]">GeoPuzzle Debug</h3>
-                <button 
-                  type="button" 
-                  onClick={() => setDebugMode(false)}
-                  className="text-xs font-bold text-[#b24d3d] hover:underline"
-                >
-                  閉じる
-                </button>
-              </div>
-              
-              <div className="mb-4">
-                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の距離</p>
-                <p className="font-display text-3xl font-extrabold text-[#173640]">{debugDistance} m</p>
-                
-                <div className="mt-3 relative h-2 bg-[#e6e8dd] rounded-full overflow-hidden">
-                  <div 
-                    className="absolute left-0 top-0 h-full bg-[#e47750] transition-all"
-                    style={{ width: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
-                  />
-                  <div 
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#173640] rounded-full border-2 border-white shadow"
-                    style={{ left: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
-                  />
-                </div>
-                <div className="mt-1 flex justify-between text-[10px] text-[#668078]">
-                  <span>0m</span>
-                  <span>200m</span>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={debugDistance}
-                  onChange={(e) => setDebugDistance(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {[100, 50, 30, 10].map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setDebugDistance(m)}
-                    className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
-                      debugDistance === m 
-                        ? 'bg-[#e47750] text-white' 
-                        : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
-                    }`}
-                  >
-                    {m}m
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                {[5, 3, 1, 0].map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setDebugDistance(m)}
-                    className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
-                      debugDistance === m 
-                        ? 'bg-[#e47750] text-white' 
-                        : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
-                    }`}
-                  >
-                    {m === 0 ? '到達' : `${m}m`}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-[#d4d8cc]">
-                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の状態</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{stage === 'navigation' ? '🗺️' : stage === 'approaching' ? '📍' : stage === 'exploration' ? '🔎' : stage === 'final-search' ? '🎯' : stage === 'discovery' ? '✨' : '🎉'}</span>
-                  <span className="font-bold text-[#173640]">
-                    {stage === 'navigation' ? '移動' : stage === 'approaching' ? '接近' : stage === 'exploration' ? '探索開始' : stage === 'final-search' ? '最終探索' : stage === 'discovery' ? '発見判定' : '発見'}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const simulatedFix = {
-                    latitude: mission.latitude + (debugDistance / 111320),
-                    longitude: mission.longitude,
-                    accuracy: 2,
-                    timestamp: Date.now(),
-                    provider: 'simulated' as const,
-                    simulated: true,
-                  };
-                  applyFix(simulatedFix);
-                }}
-                className="mt-4 w-full rounded-xl bg-[#173640] px-4 py-3 text-sm font-bold text-[#f4f0e6] hover:bg-[#1e3c46]"
-              >
-                距離を適用
-              </button>
-            </div>
-          )}
-
-          {!debugMode && (
-            <button
-              type="button"
-              onClick={() => setDebugMode(true)}
-              className="mt-4 w-full rounded-xl border border-dashed border-[#d4d8cc] px-4 py-2 text-xs font-bold text-[#8a978d] hover:bg-[#f5f2e9]"
-            >
-              デバッグモードを開く
-            </button>
-          )}
         </div>
       </div>
-    )}
-  </main>;
+
+      {/* ヒントモーダル */}
+      {hintModalOpen && (
 }
 
 function DiscoverPage({ mission }: { mission: Mission }) {
