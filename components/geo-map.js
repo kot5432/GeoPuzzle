@@ -57,6 +57,7 @@
       container: container,
       center: [center.lng, center.lat],
       zoom: typeof opts.zoom === 'number' ? opts.zoom : 17,
+      minZoom: typeof opts.minZoom === 'number' ? opts.minZoom : 15,
       maxBounds: JAPAN_BOUNDS,
       style: '/maps/map.json',
       localIdeographFontFamily: 'Noto Sans JP, sans-serif',
@@ -86,10 +87,10 @@
 
       var areaConfig = config || {};
       var center = [areaConfig.center.lng, areaConfig.center.lat];
-      var radius = typeof areaConfig.radius === 'number' ? areaConfig.radius : 80;
+      var radius = typeof areaConfig.radius === 'number' ? areaConfig.radius : 120;
       var color = areaConfig.color || '#F9A43A';
-      var fillOpacity = typeof areaConfig.fillOpacity === 'number' ? areaConfig.fillOpacity : 0.18;
-      var strokeOpacity = typeof areaConfig.strokeOpacity === 'number' ? areaConfig.strokeOpacity : 0.8;
+      var fillOpacity = typeof areaConfig.fillOpacity === 'number' ? areaConfig.fillOpacity : 0.22;
+      var strokeOpacity = typeof areaConfig.strokeOpacity === 'number' ? areaConfig.strokeOpacity : 0.45;
       var areaData = {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: center },

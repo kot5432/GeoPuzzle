@@ -272,10 +272,10 @@ async function syncTargetsToHomeMap() {
   if (hMap.setExplorationArea) {
     hMap.setExplorationArea({
       center: focusPosition,
-      radius: 80,
-      color: '#F9A43A',
-      fillOpacity: 0.24,
-      strokeOpacity: 0.9,
+      radius: 120,
+      color: '#F4B942',
+      fillOpacity: 0.18,
+      strokeOpacity: 0.5,
     });
   }
 }
