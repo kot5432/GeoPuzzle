@@ -794,116 +794,120 @@ function NavigatePage({ mission }: { mission: Mission }) {
         <p className={`mt-5 rounded-xl px-3 py-3 text-xs leading-5 ${stageTone[stage]}`} data-testid="status-stage">{stageMessage(stage)}{stage === 'arrived' && !accuracyOk && ' ただし測位誤差が大きいため、判定にはもう少し精度が必要です。'}</p>
         {locationError && <p className="mt-5 rounded-xl bg-[#6a3f43] px-3 py-3 text-xs leading-5 text-[#ffe2d4]" aria-live="assertive" data-testid="status-location-error">{locationError}</p>}
         {message && <p className="mt-5 rounded-xl bg-[#284b52] px-3 py-3 text-xs leading-5 text-[#d3e1d2]" aria-live="polite" data-testid="status-navigation-message">{message}</p>}
+        <div className="mt-7 space-y-3">
+          <button type="button" disabled={locating || qzss.connecting} onClick={locate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#54736d] px-4 py-3.5 text-sm font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52] disabled:opacity-60" data-testid="button-update-location"><Navigation size={17} className={locating ? 'animate-pulse' : ''} />{locating ? '現在地を確認中…' : '現在地を更新'}</button>
+          <button type="button" onClick={verify} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold transition-transform hover:-translate-y-0.5 ${canDiscover ? 'bg-[#e47750] text-white shadow-[3px_3px_0_#a74e3b]' : 'bg-[#2c4f56] text-[#a9c1b2]'}`} data-testid="button-verify-location"><Crosshair size={17} />{canDiscover ? '発見する' : 'この場所で判定する'}</button>
+          {DEMO_MODE && !simulating && <button type="button" onClick={startSimulation} className="w-full rounded-xl px-4 py-2 font-mono text-[10px] uppercase tracking-[.16em] text-[#8fa99b] underline underline-offset-4" data-testid="button-start-simulation">demo: GPSなしでシミュレーション</button>}
 
-        {/* デバッグ用コントロール */}
-        {debugMode && (
-          <div className="mt-5 rounded-2xl border border-[#d4d8cc] bg-[#f9f7f0] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-mono text-[10px] uppercase tracking-[.18em] text-[#668078]">GeoPuzzle Debug</h3>
-              <button 
-                type="button" 
-                onClick={() => setDebugMode(false)}
-                className="text-xs font-bold text-[#b24d3d] hover:underline"
+          {/* デバッグ用コントロール */}
+          {debugMode && (
+            <div className="mt-4 rounded-2xl border border-[#d4d8cc] bg-[#f9f7f0] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-mono text-[10px] uppercase tracking-[.18em] text-[#668078]">GeoPuzzle Debug</h3>
+                <button 
+                  type="button" 
+                  onClick={() => setDebugMode(false)}
+                  className="text-xs font-bold text-[#b24d3d] hover:underline"
+                >
+                  閉じる
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の距離</p>
+                <p className="font-display text-3xl font-extrabold text-[#173640]">{debugDistance} m</p>
+                
+                <div className="mt-3 relative h-2 bg-[#e6e8dd] rounded-full overflow-hidden">
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-[#e47750] transition-all"
+                    style={{ width: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
+                  />
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#173640] rounded-full border-2 border-white shadow"
+                    style={{ left: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex justify-between text-[10px] text-[#668078]">
+                  <span>0m</span>
+                  <span>200m</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  value={debugDistance}
+                  onChange={(e) => setDebugDistance(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[100, 50, 30, 10].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setDebugDistance(m)}
+                    className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
+                      debugDistance === m 
+                        ? 'bg-[#e47750] text-white' 
+                        : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
+                    }`}
+                  >
+                    {m}m
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {[5, 3, 1, 0].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setDebugDistance(m)}
+                    className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
+                      debugDistance === m 
+                        ? 'bg-[#e47750] text-white' 
+                        : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
+                    }`}
+                  >
+                    {m === 0 ? '到達' : `${m}m`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-[#d4d8cc]">
+                <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の状態</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{stage === 'navigation' ? '🗺️' : stage === 'approaching' ? '📍' : stage === 'exploration' ? '🔎' : stage === 'final-search' ? '🎯' : stage === 'discovery' ? '✨' : '🎉'}</span>
+                  <span className="font-bold text-[#173640]">
+                    {stage === 'navigation' ? '移動' : stage === 'approaching' ? '接近' : stage === 'exploration' ? '探索開始' : stage === 'final-search' ? '最終探索' : stage === 'discovery' ? '発見判定' : '発見'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const simulatedFix = {
+                    latitude: mission.latitude + (debugDistance / 111320),
+                    longitude: mission.longitude,
+                    accuracy: 2,
+                    timestamp: Date.now(),
+                    provider: 'simulated' as const,
+                    simulated: true,
+                  };
+                  applyFix(simulatedFix);
+                }}
+                className="mt-4 w-full rounded-xl bg-[#173640] px-4 py-3 text-sm font-bold text-[#f4f0e6] hover:bg-[#1e3c46]"
               >
-                閉じる
+                距離を適用
               </button>
             </div>
-            
-            <div className="mb-4">
-              <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の距離</p>
-              <p className="font-display text-3xl font-extrabold text-[#173640]">{debugDistance} m</p>
-              
-              <div className="mt-3 relative h-2 bg-[#e6e8dd] rounded-full overflow-hidden">
-                <div 
-                  className="absolute left-0 top-0 h-full bg-[#e47750] transition-all"
-                  style={{ width: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
-                />
-                <div 
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#173640] rounded-full border-2 border-white shadow"
-                  style={{ left: `${Math.min(100, (debugDistance / 200) * 100)}%` }}
-                />
-              </div>
-              <div className="mt-1 flex justify-between text-[10px] text-[#668078]">
-                <span>0m</span>
-                <span>200m</span>
-              </div>
-            </div>
+          )}
 
-            <div className="mb-4">
-              <input
-                type="range"
-                min="0"
-                max="200"
-                value={debugDistance}
-                onChange={(e) => setDebugDistance(Number(e.target.value))}
-                className="w-full"
-              />
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              {[100, 50, 30, 10].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setDebugDistance(m)}
-                  className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
-                    debugDistance === m 
-                      ? 'bg-[#e47750] text-white' 
-                      : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
-                  }`}
-                >
-                  {m}m
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              {[5, 3, 1, 0].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setDebugDistance(m)}
-                  className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
-                    debugDistance === m 
-                      ? 'bg-[#e47750] text-white' 
-                      : 'bg-[#e7e8de] text-[#536b65] hover:bg-[#d9e5dc]'
-                  }`}
-                >
-                  {m === 0 ? '到達' : `${m}m`}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-[#d4d8cc]">
-              <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#668078] mb-2">現在の状態</p>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{stage === 'navigation' ? '🗺️' : stage === 'approaching' ? '📍' : stage === 'exploration' ? '🔎' : stage === 'final-search' ? '🎯' : stage === 'discovery' ? '✨' : '🎉'}</span>
-                <span className="font-bold text-[#173640]">
-                  {stage === 'navigation' ? '移動' : stage === 'approaching' ? '接近' : stage === 'exploration' ? '探索開始' : stage === 'final-search' ? '最終探索' : stage === 'discovery' ? '発見判定' : '発見'}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const simulatedFix = {
-                  latitude: mission.latitude + (debugDistance / 111320),
-                  longitude: mission.longitude,
-                  accuracy: 2,
-                  timestamp: Date.now(),
-                  provider: 'simulated' as const,
-                  simulated: true,
-                };
-                applyFix(simulatedFix);
-              }}
-              className="mt-4 w-full rounded-xl bg-[#173640] px-4 py-3 text-sm font-bold text-[#f4f0e6] hover:bg-[#1e3c46]"
-            >
-              距離を適用
-            </button>
-          </div>
-        )}
-        <div className="mt-7 space-y-3">
           {!debugMode && (
             <button
               type="button"
@@ -913,9 +917,6 @@ function NavigatePage({ mission }: { mission: Mission }) {
               デバッグモードを開く
             </button>
           )}
-          <button type="button" disabled={locating || qzss.connecting} onClick={locate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#54736d] px-4 py-3.5 text-sm font-bold text-[#f4f0e6] transition-colors hover:bg-[#284b52] disabled:opacity-60" data-testid="button-update-location"><Navigation size={17} className={locating ? 'animate-pulse' : ''} />{locating ? '現在地を確認中…' : '現在地を更新'}</button>
-          <button type="button" onClick={verify} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold transition-transform hover:-translate-y-0.5 ${canDiscover ? 'bg-[#e47750] text-white shadow-[3px_3px_0_#a74e3b]' : 'bg-[#2c4f56] text-[#a9c1b2]'}`} data-testid="button-verify-location"><Crosshair size={17} />{canDiscover ? '発見する' : 'この場所で判定する'}</button>
-          {DEMO_MODE && !simulating && <button type="button" onClick={startSimulation} className="w-full rounded-xl px-4 py-2 font-mono text-[10px] uppercase tracking-[.16em] text-[#8fa99b] underline underline-offset-4" data-testid="button-start-simulation">demo: GPSなしでシミュレーション</button>}
         </div>
       </aside>
     </div>
@@ -1011,7 +1012,66 @@ function NavigatePage({ mission }: { mission: Mission }) {
 
       {/* ヒントモーダル */}
       {hintModalOpen && (
-}
+        <div className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center bg-[#0a1a1f]/80 px-0 sm:px-4 py-0 sm:py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="ヒント">
+          <div className="w-full max-w-[440px] max-h-[92dvh] overflow-y-auto animate-rise rounded-t-[28px] sm:rounded-[28px] bg-[#f4f0e6] p-5 shadow-[0_22px_55px_rgba(0,0,0,.3)] sm:p-8 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
+            <div className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0 grid h-9 w-9 place-items-center rounded-[11px] bg-[#173640] text-[#f1c66b]"><Lightbulb size={17} /></span>
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[.24em] text-[#668078]">hint {String(justRevealedIndex + 1).padStart(2, '0')} / {mission.hints.length}</p>
+                  <h2 className="mt-1 font-display text-lg font-bold text-[#173640]">ヒントを解放しました</h2>
+                </div>
+              </div>
+              <button type="button" onClick={() => setHintModalOpen(false)} className="shrink-0 rounded-lg p-2 text-[#668078] hover:bg-[#e7e8de]"><CircleHelp size={18} /></button>
+            </div>
+            <div className="mb-6 rounded-2xl bg-[#e8f4ea] p-4">
+              <p className="text-sm leading-7 text-[#20373f]">{mission.hints[justRevealedIndex!]}</p>
+            </div>
+            <div className="space-y-3">
+              {progress.hintsRevealed < mission.hints.length && justRevealedIndex === null && (
+                <button type="button" onClick={revealHint} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#173640] px-5 py-3.5 text-sm font-bold text-[#f4f0e6] shadow-[3px_3px_0_#0e252b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-reveal-next-hint">
+                  <Lightbulb size={16} />
+                  次のヒントを解放する（{progress.hintsRevealed + 1} / {mission.hints.length}）
+                </button>
+              )}
+              {justRevealedIndex !== null && (
+                <div className="space-y-3">
+                  <div className="rounded-2xl bg-[#1e7471]/10 px-4 py-3 text-sm font-bold text-[#1e7471]">
+                    <p>🧭 ヒントを頭に入れたら、さっそく足を動かそう。</p>
+                    <p className="mt-1 text-[12px] font-normal text-[#4a6e67]">一度探索画面に戻って歩き回り、それでも分からなければまた次のヒントを開きましょう。</p>
+                  </div>
+                  <button type="button" onClick={closeHintModalAndExplore} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-back-to-explore">
+                    <Navigation size={16} />
+                    探索へ戻って探し直す
+                  </button>
+                  {progress.hintsRevealed < mission.hints.length && (
+                    <button type="button" onClick={() => setJustRevealedIndex(null)} className="w-full rounded-xl px-5 py-2.5 text-xs font-bold text-[#668078] underline underline-offset-4">
+                      今すぐ次のヒントも見る
+                    </button>
+                  )}
+                </div>
+              )}
+              {justRevealedIndex === null && progress.hintsRevealed >= mission.hints.length && (
+                <div className="space-y-3">
+                  <div className="rounded-2xl bg-[#173640]/95 px-4 py-3 text-sm text-[#f1c66b]">
+                    <p className="font-bold">🎉 ヒントは全部解放済みです。</p>
+                    <p className="mt-1 text-[12px] font-normal text-[#b9c8bc]">4つのヒントを手がかりに、あとは自分の足で発見地点へたどり着いてください。</p>
+                  </div>
+                  <button type="button" onClick={closeHintModalAndExplore} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e47750] px-5 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#a74e3b] transition-transform hover:-translate-y-0.5 active:translate-y-0" data-testid="button-back-to-explore-final">
+                    <Navigation size={16} />
+                    探索へ戻る
+                  </button>
+                </div>
+              )}
+              {justRevealedIndex === null && progress.hintsRevealed > 0 && progress.hintsRevealed < mission.hints.length && (
+                <button type="button" onClick={closeHintModalAndExplore} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#cfd8cb] bg-[#faf8f1] px-5 py-3 text-sm font-bold text-[#536b65] transition-colors hover:bg-[#efeadb]">
+                  ヒントを復習して探索へ戻る
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
 function DiscoverPage({ mission }: { mission: Mission }) {
   const [, setLocation] = useLocation();
