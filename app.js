@@ -915,7 +915,12 @@ function renderMissionAreasOnHomeMap() {
 
   try {
     const nativeMap = homeMap.getNativeMap?.();
-    if (!nativeMap || !nativeMap.isStyleLoaded()) return;
+    if (!nativeMap) return;
+    if (!nativeMap.isStyleLoaded()) {
+      // スタイル読み込み完了後にもう一度呼び直す（初回マウント直後は未ロード）
+      nativeMap.once('load', renderMissionAreasOnHomeMap);
+      return;
+    }
 
     // Remove existing mission layer if present
     if (nativeMap.getLayer('mission-areas')) {
@@ -963,7 +968,7 @@ function renderMissionAreasOnHomeMap() {
           ['get', 'icon'],
           '\n',
           ['case', 
-            ['boolean', ['feature-state', 'completed'], false],
+            ['==', ['get', 'status'], 'completed'],
             '🟢',
             '🟡'
           ]
@@ -1001,7 +1006,6 @@ function renderMissionAreasOnHomeMap() {
   } catch (error) {
     console.warn('Error rendering mission areas:', error);
   }
-}
 }
 
 function updateExploreScreen() {
