@@ -130,7 +130,7 @@ export const missions: Mission[] = [
     areaId: 'nagaoka-kosen',
     regionId: 'nagaoka',
     clue: '長岡高専へ入る前、最後に越えるものを探せ。',
-    detail: '長岡高専へ入る前、最後に越えるものを探せ。ここではまだ「坂」とは言わない。',
+    detail: '長岡高専へ入る前、最後に越えるものを探せ。',
     latitude: 37.5333,
     longitude: 138.8710,
     discoveryRadius: 8,
