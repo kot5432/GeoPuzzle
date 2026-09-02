@@ -1,8 +1,8 @@
 {
   "installCommand": "npm install -g pnpm@10.26.1 && pnpm install",
-  "buildCommand": "pnpm run build",
+  "buildCommand": "cd artifacts/geo-puzzle && pnpm run build && cd ../ && mkdir -p public && cp -R artifacts/geo-puzzle/dist/public/. public/",
   "outputDirectory": "public",
-  "framework": "vite",
+  "framework": null,
   "rewrites": [
     {
       "source": "/(.*)",
