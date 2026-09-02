@@ -77,7 +77,7 @@ export const regions: Region[] = [
     id: 'nagaoka',
     name: '新潟県 長岡市',
     shortName: '長岡市',
-    tagline: '雪と炎と、高専の街。',
+    tagline: '自然と文化が広がるまち',
     latitude: 37.532,
     longitude: 138.869,
     status: 'available',

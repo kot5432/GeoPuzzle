@@ -29,6 +29,8 @@ type RegionOverviewProps = {
   fix?: Fix | null;
   className?: string;
   interactive?: boolean;
+  /** カード用地図のコンパクトモード（ラベルなし、シンプルなピン） */
+  compact?: boolean;
 };
 
 export type MissionMapProps = SingleMissionProps | RegionOverviewProps;
@@ -46,11 +48,37 @@ const userIcon = (provider?: Fix['provider']) =>
 const goalIcon = L.divIcon({ className: '', html: '<div class="geo-marker-goal"></div>', iconSize: [20, 20], iconAnchor: [10, 10] });
 
 /** 地域モードで使うミッションノード。ピンの下にラベル（MISSION 01 / タイトル）を付ける */
-function missionNodeIcon(index: number, title: string, state: 'undiscovered' | 'discovered' | 'completed') {
+function missionNodeIcon(index: number, title: string, state: 'undiscovered' | 'discovered' | 'completed', compact = false) {
   const pinColor = state === 'undiscovered' ? '#e47750' : state === 'discovered' ? '#e4a850' : '#1e7471';
   const ringColor =
     state === 'undiscovered' ? 'rgba(228, 119, 80, 0.28)' : state === 'discovered' ? 'rgba(228, 168, 80, 0.32)' : 'rgba(30, 116, 113, 0.32)';
   const labelText = state === 'undiscovered' && index > 1 ? '？？？' : title;
+  
+  if (compact) {
+    // コンパクト版：カード用地図用（ラベルなし、シンプルなピン）
+    const node = document.createElement('div');
+    node.style.display = 'flex';
+    node.style.alignItems = 'center';
+    node.style.justifyContent = 'center';
+    node.style.width = '32px';
+    node.style.height = '32px';
+    node.style.marginLeft = '-16px';
+    node.style.marginTop = '-16px';
+    node.innerHTML = `
+      <div style="position:relative;width:24px;height:24px;">
+        <div style="position:absolute;inset:-4px;border-radius:999px;background:${ringColor};"></div>
+        <div style="position:absolute;inset:2px;border-radius:999px;background:${pinColor};border:3px solid #fff;box-shadow:0 2px 6px rgba(23,54,64,.25);"></div>
+      </div>
+    `;
+    return L.divIcon({
+      className: '',
+      html: node,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    });
+  }
+  
+  // 通常版：地域マップ用
   const node = document.createElement('div');
   node.style.display = 'flex';
   node.style.flexDirection = 'column';
@@ -86,12 +114,14 @@ export function MissionMap(props: MissionMapProps) {
 
   const singleMission = useMemo<Mission | null>(() => (mode === 'single' ? props.mission : null), [mode, props]);
 
+  const compactMode = mode === 'region' ? (props as RegionOverviewProps).compact ?? false : false;
+
   const initialCenter: L.LatLngTuple = useMemo(() => {
     if (mode === 'region') return [props.region.latitude, props.region.longitude];
     return [singleMission!.latitude, singleMission!.longitude];
   }, [mode, props, singleMission]);
 
-  const initialZoom = mode === 'region' ? 14 : 16;
+  const initialZoom = mode === 'region' ? (compactMode ? 13 : 14) : 16;
 
   /* ---------- マウント ---------- */
   useEffect(() => {
@@ -219,7 +249,7 @@ export function MissionMap(props: MissionMapProps) {
       const position: L.LatLngTuple = [entry.mission.latitude, entry.mission.longitude];
       bounds.push(position);
       const existing = regionRefs.current.missionMarkers.get(entry.mission.id);
-      const icon = missionNodeIcon(entry.index, entry.mission.title, entry.state);
+      const icon = missionNodeIcon(entry.index, entry.mission.title, entry.state, compactMode);
       if (!existing) {
         const marker = L.marker(position, { icon }).addTo(map);
         if (typeof entry.onSelect === 'function') {

@@ -235,6 +235,12 @@ function HomePage({ session }: { session: Session | null }) {
     else setLocation('/navigate');
   };
   const nearestStats = regionMissionStats(nearest.id, allProgress);
+  const nearestMissions = missionsByRegion(nearest.id);
+  const nearbyMissionEntries = nearestMissions.map((mission, idx) => {
+    const p = allProgress[mission.id] ?? emptyProgress;
+    const state: 'undiscovered' | 'discovered' | 'completed' = p.completed ? 'completed' : p.discovered ? 'discovered' : 'undiscovered';
+    return { mission, index: idx + 1, state };
+  });
 
   return (
     <main className="mx-auto max-w-[1240px] px-5 pb-[calc(env(safe-area-inset-bottom)+6rem)] pb-safe-bottom-nav pt-6 sm:px-8 sm:pt-10">
@@ -268,15 +274,15 @@ function HomePage({ session }: { session: Session | null }) {
           className="group relative flex min-h-[360px] flex-col justify-between overflow-hidden rounded-[28px] border border-[#cfd8cb] bg-white text-left shadow-[0_14px_38px_rgba(31,53,62,.08)] transition-transform hover:-translate-y-1 sm:min-h-[425px]"
           data-testid="card-nearby-region"
         >
-          <div className="relative h-44 sm:h-56 overflow-hidden rounded-t-[28px] bg-gradient-to-br from-[#d9e5dc] via-[#e7e8de] to-[#f1c66b]/20">
-            <div className="absolute inset-0 opacity-60" aria-hidden>
-              <svg viewBox="0 0 400 300" className="h-full w-full">
-                <path d="M40 240C120 180 200 260 280 210S380 160 400 190" fill="none" stroke="#1e7471" strokeWidth="2" strokeDasharray="4 8" opacity=".45" />
-                <circle cx="130" cy="150" r="28" fill="#f4f0e6" stroke="#1e7471" strokeWidth="2" />
-                <circle cx="250" cy="110" r="18" fill="#f4f0e6" stroke="#e47750" strokeWidth="2" />
-                <circle cx="330" cy="220" r="14" fill="#f4f0e6" stroke="#f1c66b" strokeWidth="3" />
-              </svg>
-            </div>
+          <div className="relative h-44 sm:h-56 overflow-hidden rounded-t-[28px]">
+            <MissionMap 
+              mode="region" 
+              region={nearest} 
+              missions={nearbyMissionEntries} 
+              interactive={false} 
+              compact
+              className="absolute inset-0" 
+            />
             <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-[#173640]/90 px-3 py-1.5 text-[10px] font-bold text-[#f1c66b] backdrop-blur-sm sm:left-5 sm:top-5 sm:text-[11px]"><MapPinned size={13} /> 現在地周辺</div>
             <div className="absolute right-4 top-4 flex h-10 w-10 shrink-0 place-items-center rounded-full bg-[#173640] text-[#f1c66b] sm:right-5 sm:top-5 sm:h-11 sm:w-11"><Compass size={18} className="sm:size-5" /></div>
           </div>
