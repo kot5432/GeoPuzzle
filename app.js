@@ -85,7 +85,7 @@ const MAP_CONFIG = {
     lat: 36.7813,  // 海王丸パーク中心
     lng: 137.1076
   },
-  zoom: 16
+  zoom: 13  // 富山県全域が見えるズームレベル
 };
 
 // Mission data structure
@@ -175,7 +175,7 @@ function ensureMapsMounted(screenName) {
 
   if (!homeMap) {
     homeMap = (typeof GeoMap !== 'undefined' && GeoMap.mount)
-      ? GeoMap.mount('#home-map-container', { center, zoom: 16 }).catch(err => {
+      ? GeoMap.mount('#home-map-container', { center, zoom: MAP_CONFIG.zoom }).catch(err => {
           console.warn('[homeMap] mount failed:', err?.message);
           return null;
         })
@@ -910,59 +910,98 @@ function showMissionDetail(missionId) {
 }
 
 function renderMissionAreasOnHomeMap() {
-  // Add mission area markers to the home map
+  // Add mission area markers to the home map using GeoJSON layer
   if (!homeMap) return;
 
   try {
     const nativeMap = homeMap.getNativeMap?.();
-    if (!nativeMap) return;
+    if (!nativeMap || !nativeMap.isStyleLoaded()) return;
 
-    // Clear existing mission markers if any
-    document.querySelectorAll('.mission-area-marker').forEach(el => {
-      if (el._marker) el._marker.remove();
-      el.remove();
-    });
+    // Remove existing mission layer if present
+    if (nativeMap.getLayer('mission-areas')) {
+      nativeMap.removeLayer('mission-areas');
+    }
+    if (nativeMap.getSource('mission-areas')) {
+      nativeMap.removeSource('mission-areas');
+    }
 
-    // Add mission markers to the map
-    MISSIONS.forEach((mission, index) => {
+    // Build GeoJSON feature collection
+    const features = MISSIONS.map((mission) => {
       const isCompleted = missionProgress[mission.id]?.completed;
-      const statusEmoji = isCompleted ? '🟢' : '🟡'; // 🟢 completed, 🟡 available
-
-      // Create marker element
-      const markerEl = document.createElement('div');
-      markerEl.className = 'mission-area-marker';
-      markerEl.dataset.missionId = mission.id;
-      markerEl.style.cursor = 'pointer';
-
-      // Create emoji/status indicator
-      const emojiEl = document.createElement('div');
-      emojiEl.className = 'mission-marker-emoji';
-      emojiEl.textContent = statusEmoji;
-      markerEl.appendChild(emojiEl);
-
-      // Create marker label (mission icon)
-      const labelEl = document.createElement('div');
-      labelEl.className = 'mission-marker-label';
-      labelEl.textContent = mission.reward.icon;
-      markerEl.appendChild(labelEl);
-
-      // Add click handler
-      markerEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        startMission(mission.id);
-      });
-
-      // Add marker to map using Maplibre Marker
-      const marker = new maplibregl.Marker({ element: markerEl })
-        .setLngLat([mission.targetLocation.longitude, mission.targetLocation.latitude])
-        .addTo(nativeMap);
-
-      // Store reference for cleanup if needed
-      markerEl._marker = marker;
+      return {
+        type: 'Feature',
+        properties: {
+          id: mission.id,
+          title: mission.title,
+          icon: mission.reward.icon,
+          completed: isCompleted,
+          status: isCompleted ? 'completed' : 'available'
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: [mission.targetLocation.longitude, mission.targetLocation.latitude]
+        }
+      };
     });
+
+    // Add GeoJSON source
+    nativeMap.addSource('mission-areas', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: features
+      }
+    });
+
+    // Add layer for mission points
+    nativeMap.addLayer({
+      id: 'mission-areas',
+      type: 'symbol',
+      source: 'mission-areas',
+      layout: {
+        'text-field': ['concat', 
+          ['get', 'icon'],
+          '\n',
+          ['case', 
+            ['boolean', ['feature-state', 'completed'], false],
+            '🟢',
+            '🟡'
+          ]
+        ],
+        'text-size': 20,
+        'text-anchor': 'center',
+        'text-offset': [0, 0],
+        'text-allow-overlap': true,
+        'icon-allow-overlap': true
+      },
+      paint: {
+        'text-color': '#fff',
+        'text-opacity': 1
+      }
+    });
+
+    // Add click handler to layer
+    nativeMap.on('click', 'mission-areas', (e) => {
+      if (e.features && e.features.length > 0) {
+        const feature = e.features[0];
+        const missionId = feature.properties.id;
+        console.log('Mission clicked:', missionId);
+        startMission(missionId);
+      }
+    });
+
+    // Change cursor on hover
+    nativeMap.on('mouseenter', 'mission-areas', () => {
+      nativeMap.getCanvas().style.cursor = 'pointer';
+    });
+    nativeMap.on('mouseleave', 'mission-areas', () => {
+      nativeMap.getCanvas().style.cursor = '';
+    });
+
   } catch (error) {
     console.warn('Error rendering mission areas:', error);
   }
+}
 }
 
 function updateExploreScreen() {
