@@ -49,6 +49,8 @@ export function evaluateSignalQuality(state: QzssState): SignalQuality {
   if (total >= 8 && hdop !== null && hdop < 2 && fixQuality >= 2) return 'excellent';
   if (total >= 5 && hdop !== null && hdop < 5 && fixQuality >= 2) return 'good';
   if (total >= 3 && fixQuality >= 1) return 'poor';
+  // デバッグ用: Fix Qualityが0でも衛星があれば信号弱として扱う（屋内テスト用）
+  if (total >= 1 && fixQuality >= 0) return 'poor';
   return 'none';
 }
 
