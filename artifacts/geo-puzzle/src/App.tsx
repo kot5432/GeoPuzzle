@@ -1010,8 +1010,8 @@ function NavigatePage({ mission }: { mission: Mission }) {
         </div>
       </div>
 
-      {/* ヒントモーダル */}
-      {hintModalOpen && (
+      {/* ヒントモーダル - 一時的に削除 */}
+      {/* {hintModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center bg-[#0a1a1f]/80 px-0 sm:px-4 py-0 sm:py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="ヒント">
           <div className="w-full max-w-[440px] max-h-[92dvh] overflow-y-auto animate-rise rounded-t-[28px] sm:rounded-[28px] bg-[#f4f0e6] p-5 shadow-[0_22px_55px_rgba(0,0,0,.3)] sm:p-8 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
             <div className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
@@ -1071,7 +1071,7 @@ function NavigatePage({ mission }: { mission: Mission }) {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
 function DiscoverPage({ mission }: { mission: Mission }) {
   const [, setLocation] = useLocation();
